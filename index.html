@@ -172,7 +172,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v24';
+const APP_VER='test v25';
 const S={ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -690,9 +690,10 @@ function viewCesty(){
   if(S.jz&&S.jz.open)return viewJazdy();
   const tot=P.trips.reduce((a,t)=>a+(t.calc?t.calc.totalEur:0),0);
   let h=monthNav()+`<div class="row" style="margin-bottom:12px"><button class="btn" data-act="cpNew">+ Nová cesta</button><button class="btn sec" data-act="cpPrintAll"${P.trips.length?'':' disabled'}>Tlač CP a zhrnutie</button><button class="btn sec" data-act="cpSum"${P.trips.length?'':' disabled'}>Zhrnutie</button><button class="btn sec" data-act="jzOpen">Z kníh jázd</button></div>`;
+  h+=viewCpAtt();
   h+=`<div class="card"><div class="row sp"><h3>Cesty ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)}</h3><b>${fm(tot)} €</b></div>`;
   if(!P.trips.length)h+='<p class="muted">V tomto mesiaci zatiaľ nie sú žiadne cesty.</p>';
-  h+=P.trips.map(t=>`<div class="loc"><div class="row sp"><b>${e(t.no)}</b><b>${fm(t.calc.totalEur)} €</b></div><div class="small">${e(userName(t.user_id))} · ${dmyFull(t.start_at)} ${t.start_at.slice(11)} – ${dmyFull(t.end_at)} ${t.end_at.slice(11)}</div><div class="muted small">${e(t.place)} · ${t.legs.length} úsekov</div><div class="row" style="margin-top:6px"><button class="btn sec sm" data-act="cpEdit" data-id="${t.id}">Upraviť</button><button class="btn sec sm" data-act="cpPrint1" data-id="${t.id}">Tlač</button><button class="btn bad sm" data-act="cpDel" data-id="${t.id}">Zmazať</button></div></div>`).join('')+'</div>';
+  h+=P.trips.map(t=>`<div class="loc"><div class="row sp"><b>${e(t.no)}</b><b>${fm(t.calc.totalEur)} €</b></div><div class="small">${e(userName(t.user_id))} · ${dmyFull(t.start_at)} ${t.start_at.slice(11)} – ${dmyFull(t.end_at)} ${t.end_at.slice(11)}</div><div class="muted small">${e(t.place)} · ${t.legs.length} úsekov</div><div class="row" style="margin-top:6px"><button class="btn sec sm" data-act="cpEdit" data-id="${t.id}">Upraviť</button><button class="btn sec sm" data-act="cpPrint1" data-id="${t.id}">Tlač</button><button class="btn sec sm" data-act="cpAtt" data-id="${t.id}">Dochádzka z CP</button><button class="btn bad sm" data-act="cpDel" data-id="${t.id}">Zmazať</button></div></div>`).join('')+'</div>';
   h+=`<form class="card" data-form="cpCounter"><h3 style="margin-bottom:8px">Číslovanie</h3><p class="muted small">Ďalšie čísla: zahraničné ${P.yy}CPZ${String(P.next.Z).padStart(3,'0')}, tuzemské ${P.yy}CPT${String(P.next.T).padStart(3,'0')}. Ak chcete začať od iného čísla, zadajte posledné už použité číslo.</p><div class="row"><div class="f"><label>Posledné zahraničné</label><input name="nZ" inputmode="numeric" placeholder="${P.next.Z-1}"></div><div class="f"><label>Posledné tuzemské</label><input name="nT" inputmode="numeric" placeholder="${P.next.T-1}"></div><button class="btn sec">Uložiť</button></div></form>`;
   if(role()==='admin')h+=`<form class="card" data-form="cpRate"><h3 style="margin-bottom:8px">Sadzby stravného v zahraničí (100 %)</h3>${P.rates.map(r=>`<div class="row sp small"><span>${e(r.id)} · ${e(r.name||CNAME[r.id]||'')}</span><b>${fm(r.rate)} ${r.cur==='CZK'?'Kč':'€'}</b></div>`).join('')}<div class="row" style="margin-top:8px"><div class="f" style="flex-basis:70px"><label>Krajina</label><input name="id" maxlength="2" placeholder="AT"></div><div class="f"><label>Názov</label><input name="name"></div><div class="f" style="flex-basis:90px"><label>Mena</label><select name="cur"><option>EUR</option><option>CZK</option></select></div><div class="f" style="flex-basis:90px"><label>Sadzba</label><input name="rate" inputmode="decimal"></div><button class="btn sec">Uložiť</button></div></form>`;
   return h}
@@ -730,6 +731,15 @@ function viewAtt(){
     else{let n=0;h+='<div class="wrap"><table><tr><th></th><th>Zamestnanec</th><th>Deň</th><th>Príchod</th><th>Odchod</th><th class="r">km</th><th></th></tr>'+it.map((x,i)=>{n+=X.sel[i]?1:0;return `<tr><td><input type="checkbox" data-act="jzAttSel" data-i="${i}"${X.sel[i]?' checked':''}${x.skip?' disabled':''} aria-label="Vybrať"></td><td>${e(x.user_name)}</td><td>${dmy(x.day)}</td><td>${e(x.in)}</td><td>${e(x.out)}</td><td class="r">${x.km}</td><td class="small muted">${e(x.skip||'')}</td></tr>`}).join('')+'</table></div>';
       h+=`<div class="row" style="margin-top:8px"><button class="btn" data-act="jzAttSave"${n&&!X.busy?'':' disabled'}>Zapísať vybrané (${n})</button></div>`}}
   return h+'</div>'}
+function viewCpAtt(){
+  const X=S.cp.att;if(!X)return '';
+  if(X.busy&&!X.data)return '<div class="card"><p class="muted">Pripravujem dochádzku…</p></div>';
+  if(!X.data)return '';
+  const it=X.data.items;let n=0;
+  let h=`<div class="card"><div class="row sp"><h3>Dochádzka z cesty ${e(X.data.no)}</h3><button class="btn sec sm" data-act="cpAttClose">Zavrieť</button></div><p class="muted small">Dni s jazdou: od prvého odchodu po posledný príchod. Ostatné pracovné dni: pevná pracovná doba zamestnanca (inak 08:00–16:00). Sviatky skontrolujte. Zapísané záznamy môžete v dochádzke upraviť.</p>`;
+  if(!it.length)return h+'<p class="muted">Nie je čo zapísať.</p></div>';
+  h+='<div class="wrap"><table><tr><th></th><th>Deň</th><th>Príchod</th><th>Odchod</th><th>Podľa</th><th></th></tr>'+it.map((x,i)=>{n+=X.sel[i]?1:0;return `<tr><td><input type="checkbox" data-act="cpAttSel" data-i="${i}"${X.sel[i]?' checked':''}${x.skip?' disabled':''} aria-label="Vybrať"></td><td>${dmy(x.day)}</td><td>${e(x.in)}</td><td>${e(x.out)}</td><td class="small">${e(x.why)}</td><td class="small muted">${e(x.skip||'')}</td></tr>`}).join('')+'</table></div>';
+  return h+`<div class="row" style="margin-top:8px"><button class="btn" data-act="cpAttSave"${n&&!X.busy?'':' disabled'}>Zapísať vybrané (${n})</button></div></div>`}
 function viewProp(){
   const J=S.jz,X=J.prop;
   let h=`<div class="card"><div class="row sp"><h3>Cestovné príkazy z jázd</h3><button class="btn sm" data-act="jzPropose"${X&&X.busy?' disabled':''}>${X&&X.busy?'Pripravujem…':'Navrhnúť cestovné príkazy'+(J.spz?' ('+e(J.spz)+')':' (všetky autá)')}</button></div><p class="muted small">Návrh sa robí z jázd s priradeným vodičom. Cesty s upozornením si pozrite pred uložením.</p>`;
@@ -744,6 +754,14 @@ function viewProp(){
   return h+'</div>'}
 function jzKeep(){const x=document.getElementById('jzDrv');if(x)S.jz.drv=x.value}
 Object.assign(handlers,{
+  async cpAtt(el){const X=S.cp.att={busy:true,data:null,sel:{}};render();window.scrollTo(0,0);
+    try{X.data=await call('cpAttendance',{id:el.dataset.id});X.data.items.forEach((x,i)=>{X.sel[i]=!x.skip})}catch(x){S.cp.att=null;toast(x.message,true)}
+    if(S.cp.att)X.busy=false;render()},
+  cpAttClose(){S.cp.att=null;render()},
+  cpAttSel(el){S.cp.att.sel[el.dataset.i]=el.checked;render()},
+  async cpAttSave(){const X=S.cp.att,items=X.data.items.filter((x,i)=>X.sel[i]&&!x.skip).map(x=>({user_id:x.user_id,day:x.day,in:x.in,out:x.out}));
+    if(!items.length)return;X.busy=true;render();
+    try{const r=await call('jazdyAttendanceApply',{company_id:S.companyId,items});S.cp.att=null;toast('Zapísaná dochádzka: '+r.added+' dní');await load();render()}catch(x){toast(x.message,true);X.busy=false;render()}},
   async jzAtt(){const X=S.jz.att={busy:true,data:null,sel:{}};render();
     try{X.data=await call('jazdyAttendance',{company_id:S.companyId,ym:S.ym});X.data.items.forEach((x,i)=>{X.sel[i]=!x.skip})}catch(x){toast(x.message,true)}
     X.busy=false;render()},
