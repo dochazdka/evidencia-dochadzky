@@ -172,7 +172,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v25';
+const APP_VER='test v26';
 const S={ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -742,7 +742,7 @@ function viewCpAtt(){
   return h+`<div class="row" style="margin-top:8px"><button class="btn" data-act="cpAttSave"${n&&!X.busy?'':' disabled'}>Zapísať vybrané (${n})</button></div></div>`}
 function viewProp(){
   const J=S.jz,X=J.prop;
-  let h=`<div class="card"><div class="row sp"><h3>Cestovné príkazy z jázd</h3><button class="btn sm" data-act="jzPropose"${X&&X.busy?' disabled':''}>${X&&X.busy?'Pripravujem…':'Navrhnúť cestovné príkazy'+(J.spz?' ('+e(J.spz)+')':' (všetky autá)')}</button></div><p class="muted small">Návrh sa robí z jázd s priradeným vodičom. Cesty s upozornením si pozrite pred uložením.</p>`;
+  let h=`<div class="card"><div class="row sp"><h3>Cestovné príkazy z jázd</h3><button class="btn sm" data-act="jzPropose"${X&&X.busy?' disabled':''}>${X&&X.busy?'Pripravujem…':'Navrhnúť cestovné príkazy'+(J.spz?' ('+e(J.spz)+')':' (všetky autá)')}</button></div><p class="muted small">Návrh sa robí z jázd s priradeným vodičom. Cesty s upozornením si pozrite pred uložením.</p><label class="row" style="gap:6px;margin-bottom:6px"><input type="checkbox" data-act="jzSimple"${J.simple===false?'':' checked'}> Zahraničná cesta len tam a späť (bez jázd uprostred, tie sa berú z kníh jázd do dochádzky)</label>`;
   if(X&&X.data){
     const gs=X.data.groups;
     if(X.data.unassigned)h+=`<p class="small" style="color:var(--bad,#c0392b)">${X.data.unassigned} úsekov nemá priradeného vodiča, tie sa nenavrhli.</p>`;
@@ -770,8 +770,9 @@ Object.assign(handlers,{
     if(!items.length)return;X.busy=true;render();
     try{const r=await call('jazdyAttendanceApply',{company_id:S.companyId,items});toast('Zapísaná dochádzka: '+r.added+' dní');await load();await handlers.jzAtt()}catch(x){toast(x.message,true);X.busy=false;render()}},
   async jzPropose(){const X=S.jz.prop={busy:true,data:null,sel:{}};render();
-    try{X.data=await call('cpProposeAll',{company_id:S.companyId,ym:S.ym,spz:S.jz.spz||undefined});X.data.groups.forEach((g,gi)=>g.trips.forEach((t,ti)=>{X.sel[gi+'_'+ti]=!t.exists&&!(t.warnings&&t.warnings.length)}))}catch(x){toast(x.message,true)}
+    try{X.data=await call('cpProposeAll',{company_id:S.companyId,ym:S.ym,spz:S.jz.spz||undefined,simplify:S.jz.simple!==false});X.data.groups.forEach((g,gi)=>g.trips.forEach((t,ti)=>{X.sel[gi+'_'+ti]=!t.exists&&!(t.warnings&&t.warnings.length)}))}catch(x){toast(x.message,true)}
     X.busy=false;render()},
+  jzSimple(el){S.jz.simple=el.checked;S.jz.prop=null;render()},
   jzPropSel(el){S.jz.prop.sel[el.dataset.k]=el.checked;render()},
   async jzPropSave(){const X=S.jz.prop,items=[];X.data.groups.forEach((g,gi)=>g.trips.forEach((t,ti)=>{if(X.sel[gi+'_'+ti])items.push({user_id:g.user_id,spz:g.spz,trip:{start_at:t.start_at,end_at:t.end_at,place:t.place,legs:t.legs}})}));
     if(!items.length)return;X.busy=true;render();
@@ -794,7 +795,7 @@ function viewTripForm(){
   let h=`<div class="row sp" style="margin-bottom:10px"><button class="btn sec sm" data-act="cpBack">‹ Späť</button><b>${d.id?'Úprava cesty':'Nová cesta'}</b></div>`;
   h+=`<div class="card" id="cpForm"><div class="row"><div class="f"><label>Druh cestovného príkazu</label><select data-cp="ttype"><option value="T"${d.ttype==='T'?' selected':''}>Tuzemský</option><option value="Z"${d.ttype==='Z'?' selected':''}>Zahraničný</option></select></div><div class="f"><label>Zamestnanec</label><select data-cp="user_id">${emp.map(u=>`<option value="${u.id}"${u.id===d.user_id?' selected':''}>${e(u.name)}</option>`).join('')}</select></div></div>
   <div class="row"><div class="f"><label>Miesto jednania</label><input data-cp="place" value="${e(d.place)}" placeholder="napr. Telnice, CZ"></div><div class="f"><label>Účel cesty</label><input data-cp="purpose" value="${e(d.purpose)}"></div></div>
-  <div class="row"><div class="f"><label>Spolucestujúci</label><input data-cp="companions" value="${e(d.companions)}"></div><div class="f"><label>Vozidlo (ŠPZ)</label><select data-cp="spz">${veh}</select></div></div>
+  <div class="row"><div class="f"><label>Spolucestujúci</label><input data-cp="companions" list="cpEmpList" autocomplete="off" value="${e(d.companions)}"><datalist id="cpEmpList">${emp.map(u=>`<option value="${e(u.name)}">`).join('')}</datalist><select data-cp="compAdd" aria-label="Pridať spolucestujúceho zo zamestnancov" style="margin-top:4px"><option value="">+ pridať zo zamestnancov…</option>${emp.filter(u=>u.id!==d.user_id).map(u=>`<option value="${e(u.name)}">${e(u.name)}</option>`).join('')}</select></div><div class="f"><label>Vozidlo (ŠPZ)</label><select data-cp="spz">${veh}</select></div></div>
   ${d.ttype==='Z'?`<div class="row"><div class="f"><label>Kurz CZK za 1 € (prázdne = ECB)</label><input data-cp="kurz" inputmode="decimal" value="${e(d.kurz)}"></div></div>`:''}
   <label class="row" style="gap:6px;margin-top:8px"><input type="checkbox" data-cp="mode"${d.mode==='daily'?' checked':''}> Pobyt počítať len počas jázd (cesty cez deň, nie nepretržité)</label></div>`;
   h+=`<div class="card"><div class="row sp"><h3>Trasa</h3><span class="row"><button class="btn sm" data-act="cpAddStop">+ Zastávka</button>${d.ttype==='Z'?'<button class="btn sm" data-act="cpAddCross">+ Hraničný prechod</button>':''}</span></div>
@@ -861,7 +862,7 @@ function viewCpPrint(){
   const ids=S.cpPrint,ts=ids==='sum'?[]:(ids==='all'?S.cp.trips:S.cp.trips.filter(t=>t.id===ids));
   return `<div class="row sp noprint" style="margin-bottom:8px"><button class="btn sec sm" data-act="cpPrintClose">‹ Späť</button><button class="btn sm" data-act="printQr">Tlačiť / uložiť PDF</button></div><div class="cpwrap">${ids==='all'||ids==='sum'?sumHTML():''}${ts.map(tripHTML).join('')}</div>`}
 
-$app.addEventListener('input',()=>{if(S.cp.draft)syncDraft()});$app.addEventListener('change',ev=>{const d=S.cp.draft;if(!d)return;syncDraft();if(ev.target&&ev.target.dataset&&ev.target.dataset.cp==='ttype'){if(d.ttype==='Z'){if(!d.pts.some(p=>p.kind==='cross')){insertBeforeEnd(d,{kind:'cross',code:firstForeign(),km:0});insertBeforeEnd(d,{kind:'cross',code:firstForeign(),km:0})}}else d.pts=d.pts.filter(p=>p.kind!=='cross');render()}});
+$app.addEventListener('input',()=>{if(S.cp.draft)syncDraft()});$app.addEventListener('change',ev=>{const d=S.cp.draft;if(!d)return;syncDraft();if(ev.target&&ev.target.dataset&&ev.target.dataset.cp==='compAdd'){const v=ev.target.value;if(v){const cur=String(d.companions||'').split(',').map(x=>x.trim()).filter(Boolean);if(!cur.includes(v))cur.push(v);d.companions=cur.join(', ')}render();return}if(ev.target&&ev.target.dataset&&ev.target.dataset.cp==='ttype'){if(d.ttype==='Z'){if(!d.pts.some(p=>p.kind==='cross')){insertBeforeEnd(d,{kind:'cross',code:firstForeign(),km:0});insertBeforeEnd(d,{kind:'cross',code:firstForeign(),km:0})}}else d.pts=d.pts.filter(p=>p.kind!=='cross');render()}});
 /* ===================== štart ===================== */
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 (async function start(){
