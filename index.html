@@ -680,7 +680,7 @@ function viewCesty(){
   return h}
 
 /* ---- Z kníh jázd (Carnet / Commander): výber auta a mesiaca, zoznam načítaných jázd ---- */
-S.jz={open:false,spz:'',data:null,key:'',busy:false};
+S.jz={open:false,spz:'',data:null,key:'',busy:false,sel:{}};
 async function jzLoad(){
   const key=S.companyId+'|'+S.ym+'|'+S.jz.spz;
   try{S.jz.data=await call('jazdyMonth',{company_id:S.companyId,ym:S.ym,spz:S.jz.spz||undefined});S.jz.key=key}
@@ -697,13 +697,24 @@ function viewJazdy(){
   const days=d.days||[];
   h+=`<div class="card"><h3 style="margin-bottom:8px">${e(J.spz)} · ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)}</h3>`;
   if(!days.length)return h+'<p class="muted">Pre toto auto nie sú v tomto mesiaci načítané jazdy.</p></div>';
-  h+=`<div class="wrap"><table><tr><th>Deň</th><th>Odchod</th><th>Príchod</th><th>Odkiaľ → kam</th><th class="r">km</th><th>Krajiny</th><th>Vodič</th></tr>`+days.map(x=>`<tr${x.countries.some(c=>c!=='SK')?' style="background:rgba(245,196,0,.08)"':''}><td>${dmy(x.day)}</td><td>${x.from_at.slice(11)}</td><td>${x.to_at.slice(11)}${x.to_at.slice(0,10)!==x.day?' <span class="muted small">+1</span>':''}</td><td class="small">${e(x.from_place)} → ${e(x.to_place)}</td><td class="r">${x.km}</td><td>${x.countries.join(', ')}</td><td>${e(x.driver||'—')}</td></tr>`).join('')+`</table></div><p class="muted small">${days.length} dní, ${days.reduce((a,x)=>a+x.km,0)} km celkom.</p></div>`;
+  const emps=employees(S.companyId),nsel=Object.keys(J.sel).filter(k=>J.sel[k]).length,unas=days.filter(x=>!x.drivers.length).length;
+  h+=`<div class="row" style="gap:8px;margin-bottom:10px;align-items:flex-end"><div class="f" style="min-width:180px"><label>Vodič</label><select id="jzDrv" data-act="jzDrvKeep">${emps.map(u=>`<option value="${u.id}"${u.id===J.drv?' selected':''}>${e(u.name)}</option>`).join('')}</select></div><button class="btn sm" data-act="jzAssign"${nsel?'':' disabled'}>Priradiť vybrané (${nsel})</button><button class="btn sec sm" data-act="jzClear"${nsel?'':' disabled'}>Zrušiť priradenie</button><button class="btn sec sm" data-act="jzSelUnas">Vybrať nepriradené (${unas})</button></div>`;
+  h+=`<div class="wrap"><table><tr><th><input type="checkbox" data-act="jzSelAll" aria-label="Vybrať všetko"${nsel&&nsel===days.length?' checked':''}></th><th>Deň</th><th>Odchod</th><th>Príchod</th><th>Odkiaľ → miesto státia → kam</th><th class="r">km</th><th>Krajiny</th><th>Vodič</th></tr>`+days.map(x=>`<tr${x.countries.some(c=>c!=='SK')?' style="background:rgba(245,196,0,.08)"':''}><td><input type="checkbox" data-act="jzSel" data-day="${x.day}"${J.sel[x.day]?' checked':''} aria-label="Vybrať deň"></td><td>${dmy(x.day)}</td><td>${x.from_at.slice(11)}</td><td>${x.to_at.slice(11)}${x.to_at.slice(0,10)!==x.day?' <span class="muted small">+1</span>':''}</td><td class="small">${e(x.from_place)} → ${x.stay?`<b>${e(x.stay.place)}</b> <span class="muted">(${fmin(x.stay.min)} h)</span> → `:''}${e(x.to_place)}</td><td class="r">${x.km}</td><td>${x.countries.join(', ')}</td><td>${e(x.driver_name||'—')}</td></tr>`).join('')+`</table></div><p class="muted small">${days.length} dní, ${days.reduce((a,x)=>a+x.km,0)} km celkom.</p></div>`;
   return h}
+function jzKeep(){const x=document.getElementById('jzDrv');if(x)S.jz.drv=x.value}
 Object.assign(handlers,{
+  jzDrvKeep(){jzKeep()},
   jzOpen(){S.jz.open=true;S.jz.key='';render();window.scrollTo(0,0)},
+  jzSel(el){jzKeep();S.jz.sel[el.dataset.day]=el.checked;render()},
+  jzSelAll(el){jzKeep();const d=(S.jz.data&&S.jz.data.days)||[];S.jz.sel={};if(el.checked)d.forEach(x=>{S.jz.sel[x.day]=true});render()},
+  jzSelUnas(){jzKeep();const d=(S.jz.data&&S.jz.data.days)||[];S.jz.sel={};d.forEach(x=>{if(!x.drivers.length)S.jz.sel[x.day]=true});render()},
+  async jzAssign(){const days=Object.keys(S.jz.sel).filter(k=>S.jz.sel[k]);const u=document.getElementById('jzDrv').value;if(!days.length||!u)return;
+    const r=await call('jazdyAssign',{company_id:S.companyId,spz:S.jz.spz,days,user_id:u});S.jz.sel={};S.jz.key='';toast('Priradené: '+r.changed+' úsekov');render()},
+  async jzClear(){const days=Object.keys(S.jz.sel).filter(k=>S.jz.sel[k]);if(!days.length)return;
+    const r=await call('jazdyAssign',{company_id:S.companyId,spz:S.jz.spz,days,user_id:''});S.jz.sel={};S.jz.key='';toast('Priradenie zrušené');render()},
   jzAll(){S.jz.all=!S.jz.all;render()},
   jzBack(){S.jz.open=false;render()},
-  jzPick(el){S.jz.spz=el.dataset.spz===S.jz.spz?'':el.dataset.spz;S.jz.key='';render()}});
+  jzPick(el){S.jz.spz=el.dataset.spz===S.jz.spz?'':el.dataset.spz;S.jz.sel={};S.jz.key='';render()}});
 function viewTripForm(){
   const P=S.cp,d=P.draft,emp=employees(S.companyId),codes=P.rates.map(r=>r.id);
   const veh=`<option value="">—</option>`+P.vehicles.map(v=>`<option value="${e(v.spz)}"${d.spz===v.spz?' selected':''}>${e(v.spz)} ${e(v.name)}</option>`).join('');
