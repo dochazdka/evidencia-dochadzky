@@ -408,7 +408,7 @@ function viewPeople(){
   if(S.newPin)h+=`<div class="card hi"><b>${e(S.newPin.name)}</b><div class="muted small">prihlasovacie meno: <b>${e(S.newPin.username)}</b></div><div class="pin">${e(S.newPin.pin)}</div><p class="muted small" style="margin:4px 0 8px">PIN sa zobrazí len teraz. Odovzdajte ho zamestnancovi.</p><button class="btn sec sm" data-act="hidePin">Skryť</button></div>`;
   if(S.users.some(u=>u.fixed_from&&u.company_id===S.companyId))h+=`<div class="card"><b>Pevná pracovná doba</b><p class="muted small" style="margin:4px 0 8px">Doplní dochádzku za ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)} zamestnancom s pevnou dobou (pracovné dni po dnes, bez sviatkov, neprítomností a dní s existujúcim záznamom).</p><button class="btn" data-act="fillFixed">Doplniť pevnú dobu za mesiac</button></div>`;
   const list=S.users.filter(u=>u.role!=='admin'&&(u.company_id===S.companyId||(u.companies||[]).includes(S.companyId)));
-  h+=`<div class="card"><div class="wrap"><table><thead><tr><th>Meno</th><th>Meno na prihlásenie</th><th>Rola</th><th></th></tr></thead><tbody>${list.sort((a,b)=>a.name.localeCompare(b.name,'sk')).map(u=>`<tr${u.active===false?' style="opacity:.5"':''}><td>${e(u.name)}${u.os_cislo?`<div class="muted small">os. č. ${e(u.os_cislo)}</div>`:''}${u.address?`<div class="muted small">${e(u.address)}</div>`:''}${u.fixed_from?`<div class="muted small">pevná doba ${e(u.fixed_from)}–${e(u.fixed_to)}</div>`:''}${u.no_meal?`<div class="muted small">bez nároku na stravné</div>`:''}<div class="muted small">${u.role==='manager'?(u.companies||[]).map(id=>(companyOf(id)||{name:'?'}).name).join(', '):(companyOf(u.company_id)||{name:'?'}).name}</div></td><td>${e(u.username)}</td><td>${u.role==='manager'?'správca':'zamestnanec'}</td><td class="r"><button class="btn sec sm" data-act="resetPin" data-id="${u.id}">Nový PIN</button> <button class="btn sec sm" data-act="editAddr" data-id="${u.id}">Bydlisko</button> ${u.company_id?`<button class="btn sec sm" data-act="editFixed" data-id="${u.id}">Pevná doba</button> <button class="btn sec sm" data-act="toggleNoMeal" data-id="${u.id}">${u.no_meal?'Stravné áno':'Bez stravného'}</button>`:''}${r==='admin'&&u.company_id&&u.role!=='admin'?` <button class="btn sec sm" data-act="toggleMgr" data-id="${u.id}">${u.role==='manager'?'Len zamestnanec':'Aj správca'}</button>`:''}${r==='admin'&&u.role==='manager'&&!u.company_id?` <button class="btn sec sm" data-act="alsoEmp" data-id="${u.id}">Aj zamestnanec</button>`:''} <button class="btn sec sm" data-act="toggleActive" data-id="${u.id}">${u.active===false?'Aktivovať':'Vypnúť'}</button></td></tr>`).join('')||'<tr><td colspan="4" class="muted">Zatiaľ nikto.</td></tr>'}</tbody></table></div></div>`;
+  h+=`<div class="card"><div class="wrap"><table><thead><tr><th>Meno</th><th>Meno na prihlásenie</th><th>Rola</th><th></th></tr></thead><tbody>${list.sort((a,b)=>a.name.localeCompare(b.name,'sk')).map(u=>`<tr${u.active===false?' style="opacity:.5"':''}><td>${e(u.name)}${u.os_cislo?`<div class="muted small">os. č. ${e(u.os_cislo)}</div>`:''}${u.address?`<div class="muted small">${e(u.address)}</div>`:''}${u.fixed_from?`<div class="muted small">pevná doba ${e(u.fixed_from)}–${e(u.fixed_to)}</div>`:''}${u.no_meal?`<div class="muted small">bez nároku na stravné</div>`:''}${u.emp_from||u.emp_to?`<div class="muted small">pracovný pomer ${u.emp_from?'od '+dmyFull(u.emp_from):''}${u.emp_to?' do '+dmyFull(u.emp_to):''}</div>`:''}<div class="muted small">${u.role==='manager'?(u.companies||[]).map(id=>(companyOf(id)||{name:'?'}).name).join(', '):(companyOf(u.company_id)||{name:'?'}).name}</div></td><td>${e(u.username)}</td><td>${u.role==='manager'?'správca':'zamestnanec'}</td><td class="r"><button class="btn sec sm" data-act="resetPin" data-id="${u.id}">Nový PIN</button> <button class="btn sec sm" data-act="editAddr" data-id="${u.id}">Bydlisko</button> ${u.company_id?`<button class="btn sec sm" data-act="editFixed" data-id="${u.id}">Pevná doba</button> <button class="btn sec sm" data-act="editEmp" data-id="${u.id}">Pracovný pomer</button> <button class="btn sec sm" data-act="toggleNoMeal" data-id="${u.id}">${u.no_meal?'Stravné áno':'Bez stravného'}</button>`:''}${r==='admin'&&u.company_id&&u.role!=='admin'?` <button class="btn sec sm" data-act="toggleMgr" data-id="${u.id}">${u.role==='manager'?'Len zamestnanec':'Aj správca'}</button>`:''}${r==='admin'&&u.role==='manager'&&!u.company_id?` <button class="btn sec sm" data-act="alsoEmp" data-id="${u.id}">Aj zamestnanec</button>`:''} <button class="btn sec sm" data-act="toggleActive" data-id="${u.id}">${u.active===false?'Aktivovať':'Vypnúť'}</button></td></tr>`).join('')||'<tr><td colspan="4" class="muted">Zatiaľ nikto.</td></tr>'}</tbody></table></div></div>`;
   if(!cs.length)return h;
   h+=`<form class="card" data-form="addUser"><h3 style="margin-bottom:10px">Pridať človeka</h3><div class="row"><div class="f"><label for="un">Meno a priezvisko</label><input id="un" name="name" required></div><div class="f"><label for="uu">Prihlasovacie meno</label><input id="uu" name="username" placeholder="doplní sa z mena"></div></div>
   <div class="row" style="margin-top:8px"><div class="f"><label for="ur">Rola</label><select id="ur" name="role"><option value="employee">Zamestnanec</option>${r==='admin'?'<option value="both">Správca a zamestnanec</option><option value="manager">Len správca (nie je zamestnanec)</option>':''}</select></div>
@@ -556,6 +556,12 @@ const handlers={
     try{await call('entriesBatch',{user_id:g.dataset.uid,ym:S.ym,ops});S.gridDirty=false;await load();toast('Uložené ('+ops.length+')')}
     catch(x){if(btn){btn.disabled=false;btn.textContent='Uložiť zmeny'}throw x}},
   toggleNoMeal(el){const u=S.users.find(x=>x.id===el.dataset.id);return mut('userNoMeal',{id:el.dataset.id,v:!(u&&u.no_meal)},'Uložené')},
+  async editEmp(el){const u=S.users.find(x=>x.id===el.dataset.id);if(!u)return;
+    const cur=(u.emp_from||'')+' - '+(u.emp_to||'');
+    const v=prompt('Pracovný pomer od - do (RRRR-MM-DD - RRRR-MM-DD, alebo 1.9.2026 - 31.12.2026). Prázdne = bez obmedzenia, koniec môže byť prázdny:',u.emp_from||u.emp_to?cur:'');if(v===null)return;
+    const iso=t=>{t=t.trim();if(!t)return '';let m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(t);if(m)return t;m=/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/.exec(t);if(m)return `${m[3]}-${pad(+m[2])}-${pad(+m[1])}`;throw new Error('Neplatný dátum: '+t)};
+    const parts=v.split(/\s+[-–]\s+/);let f='',t='';try{f=iso(parts[0]||'');t=iso(parts[1]||'')}catch(x){toast(x.message,true);return}
+    const r=await call('userEmployment',{id:u.id,from:f,to:t});await load();render();toast(r.outside?'Uložené. Pozor: mimo pomeru je '+r.outside+' existujúcich záznamov.':'Uložené')},
   editFixed(el){const u=S.users.find(x=>x.id===el.dataset.id);const v=prompt('Pevná pracovná doba (napr. 08:00-10:00). Prázdne = bez pevnej doby:',u&&u.fixed_from?u.fixed_from+'-'+u.fixed_to:'');if(v===null)return;const mm=/^\s*(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*$/.exec(v);if(v.trim()&&!mm)throw new Error('Zadajte čas v tvare 08:00-10:00');const z=t=>t.length===4?'0'+t:t;return mut('userFixed',{id:el.dataset.id,from:mm?z(mm[1]):'',to:mm?z(mm[2]):''},'Uložené')},
   alsoEmp(el){return mut('userSetRole',{id:el.dataset.id,alsoEmp:true,company_id:S.companyId},'Uložené')},
   toggleMgr(el){const u=S.users.find(x=>x.id===el.dataset.id);return mut('userSetRole',{id:el.dataset.id,manager:u.role!=='manager'},'Uložené')},
@@ -579,7 +585,7 @@ const handlers={
   logout(){call('logout').catch(()=>{});dropSession();render()},
   tab(el){S.cp.loaded='';S.tab=el.dataset.v;S.detailId=null;S.exportText=null;render()},
   company(el){S.cp.loaded='';S.companyId=el.value;S.detailId=null;render()},
-  month(el){S.cp.loaded='';S.ym=shiftYm(S.ym,+el.dataset.d);S.exportText=null;return load()},
+  month(el){S.cp.loaded='';S.jz.key='';S.ym=shiftYm(S.ym,+el.dataset.d);S.exportText=null;return load()},
   open(el){S.detailId=el.dataset.id;render()},
   back(){S.detailId=null;render()},
   hidePin(){S.newPin=null;render()},
@@ -663,14 +669,41 @@ function viewCesty(){
   const c=companyOf(S.companyId);if(!c)return '<div class="card">Najprv založte firmu.</div>';
   const P=S.cp;if(P.loaded!==S.companyId+'|'+S.ym&&!P.busy){P.busy=true;cpLoad().finally(()=>{P.busy=false});return '<p class="muted">Načítavam…</p>'}
   if(P.draft)return viewTripForm();
+  if(S.jz&&S.jz.open)return viewJazdy();
   const tot=P.trips.reduce((a,t)=>a+(t.calc?t.calc.totalEur:0),0);
-  let h=monthNav()+`<div class="row" style="margin-bottom:12px"><button class="btn" data-act="cpNew">+ Nová cesta</button><button class="btn sec" data-act="cpPrintAll"${P.trips.length?'':' disabled'}>Tlač CP a zhrnutie</button><button class="btn sec" data-act="cpSum"${P.trips.length?'':' disabled'}>Zhrnutie</button></div>`;
+  let h=monthNav()+`<div class="row" style="margin-bottom:12px"><button class="btn" data-act="cpNew">+ Nová cesta</button><button class="btn sec" data-act="cpPrintAll"${P.trips.length?'':' disabled'}>Tlač CP a zhrnutie</button><button class="btn sec" data-act="cpSum"${P.trips.length?'':' disabled'}>Zhrnutie</button><button class="btn sec" data-act="jzOpen">Z kníh jázd</button></div>`;
   h+=`<div class="card"><div class="row sp"><h3>Cesty ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)}</h3><b>${fm(tot)} €</b></div>`;
   if(!P.trips.length)h+='<p class="muted">V tomto mesiaci zatiaľ nie sú žiadne cesty.</p>';
   h+=P.trips.map(t=>`<div class="loc"><div class="row sp"><b>${e(t.no)}</b><b>${fm(t.calc.totalEur)} €</b></div><div class="small">${e(userName(t.user_id))} · ${dmyFull(t.start_at)} ${t.start_at.slice(11)} – ${dmyFull(t.end_at)} ${t.end_at.slice(11)}</div><div class="muted small">${e(t.place)} · ${t.legs.length} úsekov</div><div class="row" style="margin-top:6px"><button class="btn sec sm" data-act="cpEdit" data-id="${t.id}">Upraviť</button><button class="btn sec sm" data-act="cpPrint1" data-id="${t.id}">Tlač</button><button class="btn bad sm" data-act="cpDel" data-id="${t.id}">Zmazať</button></div></div>`).join('')+'</div>';
   h+=`<form class="card" data-form="cpCounter"><h3 style="margin-bottom:8px">Číslovanie</h3><p class="muted small">Ďalšie čísla: zahraničné ${P.yy}CPZ${String(P.next.Z).padStart(3,'0')}, tuzemské ${P.yy}CPT${String(P.next.T).padStart(3,'0')}. Ak chcete začať od iného čísla, zadajte posledné už použité číslo.</p><div class="row"><div class="f"><label>Posledné zahraničné</label><input name="nZ" inputmode="numeric" placeholder="${P.next.Z-1}"></div><div class="f"><label>Posledné tuzemské</label><input name="nT" inputmode="numeric" placeholder="${P.next.T-1}"></div><button class="btn sec">Uložiť</button></div></form>`;
   if(role()==='admin')h+=`<form class="card" data-form="cpRate"><h3 style="margin-bottom:8px">Sadzby stravného v zahraničí (100 %)</h3>${P.rates.map(r=>`<div class="row sp small"><span>${e(r.id)} · ${e(r.name||CNAME[r.id]||'')}</span><b>${fm(r.rate)} ${r.cur==='CZK'?'Kč':'€'}</b></div>`).join('')}<div class="row" style="margin-top:8px"><div class="f" style="flex-basis:70px"><label>Krajina</label><input name="id" maxlength="2" placeholder="AT"></div><div class="f"><label>Názov</label><input name="name"></div><div class="f" style="flex-basis:90px"><label>Mena</label><select name="cur"><option>EUR</option><option>CZK</option></select></div><div class="f" style="flex-basis:90px"><label>Sadzba</label><input name="rate" inputmode="decimal"></div><button class="btn sec">Uložiť</button></div></form>`;
   return h}
+
+/* ---- Z kníh jázd (Carnet / Commander): výber auta a mesiaca, zoznam načítaných jázd ---- */
+S.jz={open:false,spz:'',data:null,key:'',busy:false};
+async function jzLoad(){
+  const key=S.companyId+'|'+S.ym+'|'+S.jz.spz;
+  try{S.jz.data=await call('jazdyMonth',{company_id:S.companyId,ym:S.ym,spz:S.jz.spz||undefined});S.jz.key=key}
+  catch(x){S.jz.key=key;if(x.auth){dropSession();render();return}toast(x.message,true)}
+  schedule()}
+const JZ_SRC={carnet:'Carnet',commander:'Commander'};
+function viewJazdy(){
+  const J=S.jz,key=S.companyId+'|'+S.ym+'|'+J.spz;
+  let h=`<div class="row sp" style="margin-bottom:10px"><button class="btn sec sm" data-act="jzBack">‹ Späť na cesty</button><b>Z kníh jázd</b></div>`+monthNav();
+  if(J.key!==key&&!J.busy){J.busy=true;jzLoad().finally(()=>{J.busy=false});return h+'<p class="muted">Načítavam…</p>'}
+  const d=J.data;if(!d)return h;
+  h+=`<div class="card"><h3 style="margin-bottom:8px">Vozidlá</h3><div class="tiles">`+d.vehicles.filter(v=>J.all||v.count||v.src).map(v=>`<button class="tile" style="text-align:left;cursor:pointer;${v.spz===J.spz?'border-color:var(--acc,#f5c400)':''}${v.count?'':';opacity:.55'}" data-act="jzPick" data-spz="${e(v.spz)}"><b style="font-size:15px">${e(v.spz)}</b><span>${e(v.name)}</span><br><span>${v.count?v.days+' dní · '+v.km+' km'+(v.foreign?' · zahr.':''):'bez jázd'}${v.src?' · '+(JZ_SRC[v.src]||v.src):''}</span></button>`).join('')+`</div><button class="btn sec sm" data-act="jzAll">${J.all?'Len vozidlá so zdrojom alebo jazdami':'Zobraziť všetky vozidlá ('+d.vehicles.length+')'}</button></div>`;
+  if(!J.spz)return h+'<p class="muted">Vyberte vozidlo.</p>';
+  const days=d.days||[];
+  h+=`<div class="card"><h3 style="margin-bottom:8px">${e(J.spz)} · ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)}</h3>`;
+  if(!days.length)return h+'<p class="muted">Pre toto auto nie sú v tomto mesiaci načítané jazdy.</p></div>';
+  h+=`<div class="wrap"><table><tr><th>Deň</th><th>Odchod</th><th>Príchod</th><th>Odkiaľ → kam</th><th class="r">km</th><th>Krajiny</th><th>Vodič</th></tr>`+days.map(x=>`<tr${x.countries.some(c=>c!=='SK')?' style="background:rgba(245,196,0,.08)"':''}><td>${dmy(x.day)}</td><td>${x.from_at.slice(11)}</td><td>${x.to_at.slice(11)}${x.to_at.slice(0,10)!==x.day?' <span class="muted small">+1</span>':''}</td><td class="small">${e(x.from_place)} → ${e(x.to_place)}</td><td class="r">${x.km}</td><td>${x.countries.join(', ')}</td><td>${e(x.driver||'—')}</td></tr>`).join('')+`</table></div><p class="muted small">${days.length} dní, ${days.reduce((a,x)=>a+x.km,0)} km celkom.</p></div>`;
+  return h}
+Object.assign(handlers,{
+  jzOpen(){S.jz.open=true;S.jz.key='';render();window.scrollTo(0,0)},
+  jzAll(){S.jz.all=!S.jz.all;render()},
+  jzBack(){S.jz.open=false;render()},
+  jzPick(el){S.jz.spz=el.dataset.spz===S.jz.spz?'':el.dataset.spz;S.jz.key='';render()}});
 function viewTripForm(){
   const P=S.cp,d=P.draft,emp=employees(S.companyId),codes=P.rates.map(r=>r.id);
   const veh=`<option value="">—</option>`+P.vehicles.map(v=>`<option value="${e(v.spz)}"${d.spz===v.spz?' selected':''}>${e(v.spz)} ${e(v.name)}</option>`).join('');
