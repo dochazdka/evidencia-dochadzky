@@ -254,7 +254,7 @@ function viewShell(){
   let h=`<div class="top"><div class="brand"><i></i>Dochádzka</div><div class="row" style="flex-wrap:nowrap"><div class="who"><b>${e(name)}</b>${rn}</div><button class="btn sec sm" data-act="logout">Odhlásiť</button></div></div>`;
   if(r==='employee')return h+viewEmployee();
   if(!cs.length&&r==='manager')return h+`<div class="card">Zatiaľ vám nebola pridelená žiadna firma.</div>`;
-  const tabs=[['ziadosti','Žiadosti'+(pendingCount()?` (${pendingCount()})`:'')],['prehlad','Prehľad'],['cesty','Cesty'],['ludia','Ľudia']];
+  const tabs=[['ziadosti','Žiadosti'+(pendingCount()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${pendingCount()}</b>`:'')],['prehlad','Prehľad'],['cesty','Cesty'],['ludia','Ľudia']];
   if(r==='manager'&&S.me.company_id)tabs.unshift(['moja','Moja dochádzka']);
   if(r==='admin')tabs.push(['firma','Firmy'],['export','Export Pohoda']);
   if(!cs.length&&r==='admin')S.tab='firma';
