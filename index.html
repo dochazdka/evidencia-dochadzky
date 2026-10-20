@@ -20,6 +20,7 @@ body{background:var(--paper);color:var(--ink);font-family:var(--font);font-size:
 h1,h2,h3{margin:0;line-height:1.2}
 h2{font-size:18px} h3{font-size:15px}
 .top{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 0 12px}
+.ver{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:4px}
 .brand{font-weight:800;letter-spacing:.02em;display:flex;align-items:center;gap:8px}
 .brand i{width:14px;height:14px;background:var(--signal);display:inline-block;border-radius:3px}
 .who{font-size:13px;color:var(--muted);text-align:right;min-width:0}
@@ -171,6 +172,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
+const APP_VER='test v24';
 const S={ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -224,7 +226,7 @@ function render(){
 
 function viewScan(){
   const s=S.scan;
-  return `<div class="login"><div class="brand" style="margin-bottom:14px"><i></i>Dochádzka</div><div class="card${s.state==='ok'?' hi':''}">
+  return `<div class="login"><div class="brand" style="margin-bottom:14px"><i></i>Dochádzka <span class="ver">${APP_VER}</span></div><div class="card${s.state==='ok'?' hi':''}">
   <h2 style="margin-bottom:10px">${s.state==='busy'?'Zaznamenávam…':s.state==='ok'?(s.action==='in'?'Príchod zaznamenaný':'Odchod zaznamenaný'):'Záznam sa nevytvoril'}</h2>
   ${s.state==='busy'?`<p class="muted">${s.phase==='save'?'Ukladám záznam…':'Zisťujem polohu…'}</p>`:''}
   ${s.state==='ok'?`<div class="pin" style="margin-bottom:10px">${e(s.time)}</div>`:''}
@@ -240,7 +242,7 @@ function viewQrSheet(){
   ${['i','o'].map(k=>`<div class="qrsheet"><h1>${k==='i'?'PRÍCHOD':'ODCHOD'}</h1><div class="qrbox">${qrSvg(k==='i'?l.url_in:l.url_out)}</div><p style="margin:8px 0 2px"><b>${e(c.name)}</b> · ${e(l.name)}</p><p style="font-size:13px;margin:0">Naskenujte telefónom a povoľte polohu.</p></div>`).join('')}`}
 
 function viewLogin(){
-  return `<div class="login"><div class="brand" style="margin-bottom:14px"><i></i>Dochádzka</div>
+  return `<div class="login"><div class="brand" style="margin-bottom:14px"><i></i>Dochádzka <span class="ver">${APP_VER}</span></div>
   ${BOOT.q?'<div class="note">Po prihlásení sa príchod alebo odchod zaznamená automaticky.</div>':''}<form class="card" data-form="login"><h2 style="margin-bottom:12px">Prihlásenie</h2>
   <div style="margin-bottom:10px"><label for="lu">Prihlasovacie meno</label><input id="lu" name="u" autocomplete="username" autocapitalize="none" required></div>
   <div style="margin-bottom:12px"><label for="lp">PIN alebo heslo</label><input id="lp" name="p" type="password" autocomplete="current-password" required></div>
@@ -252,7 +254,7 @@ function viewShell(){
   const r=role();const rn={admin:'Administrátor',manager:'Správca',employee:'Zamestnanec'}[r];
   const name=S.isOwner?'Admin':S.me.name;
   const cs=myCompanies();
-  let h=`<div class="top"><div class="brand"><i></i>Dochádzka</div><div class="row" style="flex-wrap:nowrap"><div class="who"><b>${e(name)}</b>${rn}</div><button class="btn sec sm" data-act="logout">Odhlásiť</button></div></div>`;
+  let h=`<div class="top"><div class="brand"><i></i>Dochádzka <span class="ver">${APP_VER}</span></div><div class="row" style="flex-wrap:nowrap"><div class="who"><b>${e(name)}</b>${rn}</div><button class="btn sec sm" data-act="logout">Odhlásiť</button></div></div>`;
   if(r==='employee')return h+viewEmployee();
   if(!cs.length&&r==='manager')return h+`<div class="card">Zatiaľ vám nebola pridelená žiadna firma.</div>`;
   const tabs=[['ziadosti','Žiadosti'+(pendingCount()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${pendingCount()}</b>`:'')],['prehlad','Prehľad'],['cesty','Cesty'],['ludia','Ľudia']];
