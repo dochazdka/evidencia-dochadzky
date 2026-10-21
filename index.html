@@ -173,7 +173,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v27';
+const APP_VER='test v28';
 const S={ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -352,7 +352,7 @@ const GRID_ACTS=new Set(['gAdd','gDel','gCopy','gFill','gSave','gCancel']);
 function glLine(id,i,o,ed){
   if(!ed)return `<span class="gle">${e(i)}–${o?e(o):'<b class="bad">?</b>'}</span>`;
   return `<span class="gle${id?'':' gnew'}" data-id="${id||''}" data-oi="${e(i)}" data-oo="${e(o)}"><input type="time" name="in" value="${e(i)}" aria-label="Príchod"><i>–</i><input type="time" name="out" value="${e(o)}" aria-label="Odchod"><button type="button" class="gx" data-act="gDel" title="Zmazať záznam" aria-label="Zmazať záznam">×</button></span>`}
-function tripPill(uid,day){const t=(S.tripDays||[]).find(x=>x.user_id===uid&&x.day===day);return `<span class="pill">${t&&t.kind?(t.kind==='Z'?'CPZ':'CPT')+(t.country?' '+e(t.country):''):'cesta'}</span>`}
+function tripPill(uid,day){const t=(S.tripDays||[]).find(x=>x.user_id===uid&&x.day===day);return `<span class="pill">${t&&t.country?e(t.country):'cesta'}</span>`}
 function noteOf(uid,day){const n=(S.notes||[]).find(x=>x.user_id===uid&&x.day===day);return n?n.text:''}
 function monthGrid(u,m,ed,c){
   const t=today();let rows='';
@@ -723,6 +723,7 @@ function viewJazdy(){
   if(J.key!==key&&!J.busy){J.busy=true;jzLoad().finally(()=>{J.busy=false});return h+'<p class="muted">Načítavam…</p>'}
   const d=J.data;if(!d)return h;
   h+=`<div class="card"><h3 style="margin-bottom:8px">Vozidlá</h3><div class="tiles">`+d.vehicles.filter(v=>J.all||v.count||v.src).map(v=>`<button class="tile" style="text-align:left;cursor:pointer;${v.spz===J.spz?'border-color:var(--acc,#f5c400)':''}${v.count?'':';opacity:.55'}" data-act="jzPick" data-spz="${e(v.spz)}"><b style="font-size:15px">${e(v.spz)}</b><span>${e(v.name)}</span><br><span>${v.count?v.days+' dní · '+v.km+' km'+(v.foreign?' · zahr.':''):'bez jázd'}${v.src?' · '+(JZ_SRC[v.src]||v.src):''}</span></button>`).join('')+`</div><button class="btn sec sm" data-act="jzAll">${J.all?'Len vozidlá so zdrojom alebo jazdami':'Zobraziť všetky vozidlá ('+d.vehicles.length+')'}</button></div>`;
+  h+=`<div class="card"><h3 style="margin-bottom:8px">Navrhnúť z jázd</h3><label class="row" style="gap:6px;margin-bottom:8px"><input type="checkbox" data-act="jzSimple"${J.simple===false?'':' checked'}> Zahraničná cesta len tam a späť (bez jázd uprostred)</label><div class="row"><button class="btn sm" data-act="jzPropose"${J.prop&&J.prop.busy?' disabled':''}>Navrhnúť cestovné príkazy${J.spz?' ('+e(J.spz)+')':' (všetky autá)'}</button><button class="btn sec sm" data-act="jzAtt"${J.att&&J.att.busy?' disabled':''}>Navrhnúť dochádzku</button></div></div>`;
   if(!J.spz)return h+'<p class="muted">Vyberte vozidlo.</p>';
   const days=d.days||[];
   h+=`<div class="card"><h3 style="margin-bottom:8px">${e(J.spz)} · ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)}</h3>`;
@@ -735,7 +736,10 @@ function viewJazdy(){
   return h}
 function viewAtt(){
   const X=S.jz.att;
-  let h=`<div class="card"><div class="row sp"><h3>Dochádzka z jázd</h3><button class="btn sm" data-act="jzAtt"${X&&X.busy?' disabled':''}>${X&&X.busy?'Pripravujem…':'Navrhnúť dochádzku'}</button></div><p class="muted small">Prvý odchod a posledný príchod vodiča za deň. Vyberte dni, ktoré sa majú zapísať. Dni s dochádzkou alebo v ceste sa preskočia.</p>`;
+  let h=`<div class="card"><h3>Návrh dochádzky z jázd</h3>`;
+  if(!X||(!X.data&&!X.busy))h+='<p class="muted">Návrh ešte nie je pripravený. Spustite ho v záložke „Jazdy z kníh“.</p>';
+  else if(X.busy)h+='<p class="muted">Pripravujem…</p>';
+  else h+='<p class="muted small">Prvý odchod a posledný príchod vodiča za deň. Dni s dochádzkou alebo v ceste sa preskočia.</p>';
   if(X&&X.data){const it=X.data.items;X.open=X.open||{};
     if(!it.length)h+='<p class="muted">Žiadne jazdy s priradeným vodičom.</p>';
     else{const by={};it.forEach((x,i)=>{(by[x.user_id]=by[x.user_id]||{name:x.user_name,ix:[]}).ix.push(i)});const us=Object.keys(by);let n=0;
@@ -756,7 +760,10 @@ function viewCpAtt(){
   return h+`<div class="row" style="margin-top:8px"><button class="btn" data-act="cpAttSave"${n&&!X.busy?'':' disabled'}>Zapísať vybrané (${n})</button></div></div>`}
 function viewProp(){
   const J=S.jz,X=J.prop;
-  let h=`<div class="card"><div class="row sp"><h3>Cestovné príkazy z jázd</h3><button class="btn sm" data-act="jzPropose"${X&&X.busy?' disabled':''}>${X&&X.busy?'Pripravujem…':'Navrhnúť cestovné príkazy'+(J.spz?' ('+e(J.spz)+')':' (všetky autá)')}</button></div><p class="muted small">Návrh sa robí z jázd s priradeným vodičom. Cesty s upozornením si pozrite pred uložením.</p><label class="row" style="gap:6px;margin-bottom:6px"><input type="checkbox" data-act="jzSimple"${J.simple===false?'':' checked'}> Zahraničná cesta len tam a späť (bez jázd uprostred, tie sa berú z kníh jázd do dochádzky)</label>`;
+  let h=`<div class="card"><h3>Návrh cestovných príkazov</h3>`;
+  if(!X||(!X.data&&!X.busy))h+='<p class="muted">Návrh ešte nie je pripravený. Spustite ho v záložke „Jazdy z kníh“.</p>';
+  else if(X.busy)h+='<p class="muted">Pripravujem…</p>';
+  else h+='<p class="muted small">Cesty s upozornením si pozrite pred uložením.</p>';
   if(X&&X.data){
     const gs=X.data.groups;X.open=X.open||{};
     if(X.data.unassigned)h+=`<p class="small" style="color:var(--bad,#c0392b)">${X.data.unassigned} úsekov nemá priradeného vodiča, tie sa nenavrhli.</p>`;
@@ -781,14 +788,14 @@ Object.assign(handlers,{
     try{const r=await call('jazdyAttendanceApply',{company_id:S.companyId,items});S.cp.att=null;toast('Zapísaná dochádzka: '+r.added+' dní');await load();render()}catch(x){toast(x.message,true);X.busy=false;render()}},
   async jzAtt(){const X=S.jz.att={busy:true,data:null,sel:{}};render();
     try{X.data=await call('jazdyAttendance',{company_id:S.companyId,ym:S.ym});X.data.items.forEach((x,i)=>{X.sel[i]=!x.skip})}catch(x){toast(x.message,true)}
-    X.busy=false;render()},
+    X.busy=false;S.cp.sub='dochadzka';render()},
   jzAttSel(el){S.jz.att.sel[el.dataset.i]=el.checked;render()},
   async jzAttSave(){const X=S.jz.att,items=X.data.items.filter((x,i)=>X.sel[i]&&!x.skip).map(x=>({user_id:x.user_id,day:x.day,in:x.in,out:x.out}));
     if(!items.length)return;X.busy=true;render();
     try{const r=await call('jazdyAttendanceApply',{company_id:S.companyId,items});toast('Zapísaná dochádzka: '+r.added+' dní');await load();await handlers.jzAtt()}catch(x){toast(x.message,true);X.busy=false;render()}},
   async jzPropose(){const X=S.jz.prop={busy:true,data:null,sel:{}};render();
     try{X.data=await call('cpProposeAll',{company_id:S.companyId,ym:S.ym,spz:S.jz.spz||undefined,simplify:S.jz.simple!==false});X.data.groups.forEach((g,gi)=>g.trips.forEach((t,ti)=>{X.sel[gi+'_'+ti]=!t.exists&&!(t.warnings&&t.warnings.length)}))}catch(x){toast(x.message,true)}
-    X.busy=false;render()},
+    X.busy=false;S.cp.sub='navrh';render()},
   jzSimple(el){S.jz.simple=el.checked;S.jz.prop=null;render()},
   jzPropOpen(el){const X=S.jz.prop;X.open=X.open||{};const g=el.dataset.g,cur=X.open[g]===undefined?X.data.groups.length<=2:X.open[g];X.open[g]=!cur;render()},
   jzAttOpen(el){const X=S.jz.att;X.open=X.open||{};const u=el.dataset.u;const us=new Set(X.data.items.map(x=>x.user_id));const cur=X.open[u]===undefined?us.size<=2:X.open[u];X.open[u]=!cur;render()},
