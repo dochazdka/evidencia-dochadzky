@@ -173,7 +173,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v28';
+const APP_VER='test v29';
 const S={ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -810,6 +810,9 @@ Object.assign(handlers,{
   jzSelAll(el){jzKeep();const d=(S.jz.data&&S.jz.data.days)||[];S.jz.sel={};if(el.checked)d.forEach(x=>{S.jz.sel[x.day]=true});render()},
   jzSelUnas(){jzKeep();const d=(S.jz.data&&S.jz.data.days)||[];S.jz.sel={};d.forEach(x=>{if(!x.drivers.length)S.jz.sel[x.day]=true});render()},
   async jzAssign(){const days=Object.keys(S.jz.sel).filter(k=>S.jz.sel[k]);const u=document.getElementById('jzDrv').value;if(!days.length||!u)return;
+    const ck=await call('jazdyAssign',{company_id:S.companyId,spz:S.jz.spz,days,user_id:u,check:true});
+    if(ck.conflicts&&ck.conflicts.length){const un=userName(u);const lines=ck.conflicts.slice(0,8).map(c=>dmy(c.day)+': '+c.what).join('\n')+(ck.conflicts.length>8?'\n… a ďalšie ('+ck.conflicts.length+')':'');
+      if(!confirm(un+' už v týchto dňoch:\n'+lines+'\n\nPriradiť aj tak?'))return}
     const r=await call('jazdyAssign',{company_id:S.companyId,spz:S.jz.spz,days,user_id:u});S.jz.sel={};S.jz.key='';toast('Priradené: '+r.changed+' úsekov');render()},
   async jzClear(){const days=Object.keys(S.jz.sel).filter(k=>S.jz.sel[k]);if(!days.length)return;
     const r=await call('jazdyAssign',{company_id:S.companyId,spz:S.jz.spz,days,user_id:''});S.jz.sel={};S.jz.key='';toast('Priradenie zrušené');render()},
