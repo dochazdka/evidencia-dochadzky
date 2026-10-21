@@ -77,7 +77,7 @@ tr.link{cursor:pointer}
 .grid tfoot td{position:sticky;bottom:0;background:var(--card);border-top:2px solid var(--line)}
 .grid tr.we td,.grid tr.ho td{background:color-mix(in srgb,var(--line) 35%,transparent)}
 .grid tr.td td.gd{box-shadow:inset 3px 0 0 var(--signal)}
-.grid .gd{white-space:nowrap;font-weight:600;width:84px}.grid .gl1{width:236px;white-space:nowrap}.grid .gl2{white-space:nowrap}.grid .gb{width:52px;color:var(--muted);font-size:12px}.grid .gd .gadd{padding:0 5px;margin-left:4px}.grid .gh{width:56px;font-weight:700}.grid .gm{width:34px;text-align:center;color:var(--ok);font-weight:700}.grid .gc{width:30px}
+.grid .gd{white-space:nowrap;font-weight:600;width:84px}.grid .gl1{width:236px;white-space:nowrap}.grid .gl2{white-space:nowrap}.grid .gj{font-size:10px;padding:0 4px;margin-left:2px}.grid .gb{width:52px;color:var(--muted);font-size:12px}.grid .gd .gadd{padding:0 5px;margin-left:4px}.grid .gh{width:56px;font-weight:700}.grid .gm{width:34px;text-align:center;color:var(--ok);font-weight:700}.grid .gc{width:30px}
 .gle{display:inline-flex;align-items:center;gap:2px;margin:1px 8px 1px 0;border-radius:6px}
 .gle input,.gtool input[type=time]{width:92px;padding:2px 6px;font-size:13px;border-radius:6px}.gle input{height:24px}
 .gl1 .gnew .gx{display:none}
@@ -173,7 +173,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v30';
+const APP_VER='test v31';
 const S={ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -361,7 +361,7 @@ function monthGrid(u,m,ed,c){
     const ls=ens.map(en=>glLine(en.id,en.in_at.slice(11,16),en.out_at?en.out_at.slice(11,16):'',ed));
     const l1=ls.length?ls[0]:(ed?glLine('','','',true):''),l2=ls.slice(1).join('');
     const ab=ed&&d.abs!=='SV'?`<select class="gabs" data-day="${d.date}" aria-label="Neprítomnosť ${dmy(d.date)}"><option value="">—</option>${Object.keys(KINDS).map(k=>`<option value="${k}"${d.abs===k?' selected':''}>${KINDS[k]}</option>`).join('')}</select>`:(d.abs?`<span class="pill ok">${d.abs==='SV'?'Sviatok':e(KINDS[d.abs]||d.abs)}</span>`:'');
-    rows+=`<tr class="gr${d.wd===0||d.wd===6?' we':''}${d.holiday?' ho':''}${d.date===t?' td':''}" data-day="${d.date}" data-wd="${d.wd}" data-ho="${d.holiday?1:0}" data-abs="${d.abs?1:0}" data-trip="${d.trip?1:0}"><td class="gd">${WD[d.wd]} ${dmy(d.date)}${ed?` <button type="button" class="gadd" data-act="gAdd" title="Pridať ďalší príchod a odchod v ten istý deň (výnimočne)" aria-label="Pridať ďalší záznam">+</button>`:''}</td><td class="gl1">${l1}<div class="gl2">${l2}</div></td><td class="ga">${ab}${d.trip?tripPill(u.id,d.date):''}</td><td class="gn">${ed?`<input class="gnote" data-day="${d.date}" value="${e(noteOf(u.id,d.date))}" maxlength="300" placeholder="poznámka" aria-label="Poznámka ${dmy(d.date)}">`:e(noteOf(u.id,d.date))}</td><td class="r gh">${d.net?fmtH(d.net):''}</td><td class="r gb" title="Prestávka odpočítaná z hodín">${d.brk?d.brk+' min':''}</td><td class="gm" title="Nárok na stravné">${d.meal?'✓':''}</td>${ed?`<td class="gc"><button type="button" class="gcp" data-act="gCopy" title="Skopírovať tento deň do ďalšieho dňa" aria-label="Kopírovať do ďalšieho dňa">↓</button></td>`:''}</tr>`}
+    rows+=`<tr class="gr${d.wd===0||d.wd===6?' we':''}${d.holiday?' ho':''}${d.date===t?' td':''}" data-day="${d.date}" data-wd="${d.wd}" data-ho="${d.holiday?1:0}" data-abs="${d.abs?1:0}" data-trip="${d.trip?1:0}"><td class="gd">${WD[d.wd]} ${dmy(d.date)}${ens.some(en=>en.src==='jazdy')?' <span class="pill gj" title="Zapísané automaticky z jázd. Po úprave času značka zmizne.">z jázd</span>':''}${ed?` <button type="button" class="gadd" data-act="gAdd" title="Pridať ďalší príchod a odchod v ten istý deň (výnimočne)" aria-label="Pridať ďalší záznam">+</button>`:''}</td><td class="gl1">${l1}<div class="gl2">${l2}</div></td><td class="ga">${ab}${d.trip?tripPill(u.id,d.date):''}</td><td class="gn">${ed?`<input class="gnote" data-day="${d.date}" value="${e(noteOf(u.id,d.date))}" maxlength="300" placeholder="poznámka" aria-label="Poznámka ${dmy(d.date)}">`:e(noteOf(u.id,d.date))}</td><td class="r gh">${d.net?fmtH(d.net):''}</td><td class="r gb" title="Prestávka odpočítaná z hodín">${d.brk?d.brk+' min':''}</td><td class="gm" title="Nárok na stravné">${d.meal?'✓':''}</td>${ed?`<td class="gc"><button type="button" class="gcp" data-act="gCopy" title="Skopírovať tento deň do ďalšieho dňa" aria-label="Kopírovať do ďalšieho dňa">↓</button></td>`:''}</tr>`}
   const ff=u.fixed_from||'08:00',ft=u.fixed_to||'16:00';
   const tool=ed?`<div class="gtool"><b>Vyplniť pracovné dni</b> od <input type="time" id="gf" value="${e(ff)}"> do <input type="time" id="gt" value="${e(ft)}"> <label class="gck"><input type="checkbox" id="gtd" checked> len po dnes</label> <button type="button" class="btn sec sm" data-act="gFill">Vyplniť prázdne dni</button><span class="muted small"> Po–Pi, bez sviatkov, neprítomností a dní so záznamom. Tlačidlo ↓ v riadku skopíruje tento deň do ďalšieho (aj bez uloženia).</span></div>`:'';
   const bar=ed?`<div class="gbar"><span id="gcnt" class="muted small">Bez zmien</span><span class="row"><button type="button" class="btn sec sm" data-act="gCancel" id="gcan" disabled>Zrušiť zmeny</button><button type="button" class="btn" data-act="gSave" id="gsave" disabled>Uložiť zmeny</button></span></div>`:'';
@@ -698,7 +698,7 @@ function viewCesty(){
   if(P.draft)return viewTripForm();
   const sub=P.sub||'cp';
   if(sub==='jazdy')return viewJazdy();
-  if(sub==='navrh')return cpSubBar()+monthNav()+viewProp();
+  if(sub==='navrh')return cpSubBar()+monthNav()+viewAutoRes()+viewProp();
   if(sub==='dochadzka')return cpSubBar()+monthNav()+viewAtt();
   const tot=P.trips.reduce((a,t)=>a+(t.calc?t.calc.totalEur:0),0);
   let h=cpSubBar()+monthNav()+`<div class="row" style="margin-bottom:12px"><button class="btn" data-act="cpNew">+ Nová cesta</button><button class="btn sec" data-act="cpPrintAll"${P.trips.length?'':' disabled'}>Tlač CP a zhrnutie</button><button class="btn sec" data-act="cpSum"${P.trips.length?'':' disabled'}>Zhrnutie</button></div>`;
@@ -724,7 +724,8 @@ function viewJazdy(){
   if(J.key!==key&&!J.busy){J.busy=true;jzLoad().finally(()=>{J.busy=false});return h+'<p class="muted">Načítavam…</p>'}
   const d=J.data;if(!d)return h;
   h+=`<div class="card"><h3 style="margin-bottom:8px">Vozidlá</h3><div class="tiles">`+d.vehicles.filter(v=>J.all||v.count||v.src).map(v=>`<button class="tile" style="text-align:left;cursor:pointer;${v.spz===J.spz?'border-color:var(--acc,#f5c400)':''}${v.count?'':';opacity:.55'}" data-act="jzPick" data-spz="${e(v.spz)}"><b style="font-size:15px">${e(v.spz)}</b><span>${e(v.name)}</span><br><span>${v.count?v.days+' dní · '+v.km+' km'+(v.foreign?' · zahr.':''):'bez jázd'}${v.src?' · '+(JZ_SRC[v.src]||v.src):''}</span></button>`).join('')+`</div><button class="btn sec sm" data-act="jzAll">${J.all?'Len vozidlá so zdrojom alebo jazdami':'Zobraziť všetky vozidlá ('+d.vehicles.length+')'}</button></div>`;
-  h+=`<div class="card"><h3 style="margin-bottom:8px">Navrhnúť z jázd</h3><label class="row" style="gap:6px;margin-bottom:8px"><input type="checkbox" data-act="jzSimple"${J.simple===false?'':' checked'}> Zahraničná cesta len tam a späť (bez jázd uprostred)</label><div class="row"><button class="btn sm" data-act="jzPropose"${J.prop&&J.prop.busy?' disabled':''}>Navrhnúť cestovné príkazy${J.spz?' ('+e(J.spz)+')':' (všetky autá)'}</button><button class="btn sec sm" data-act="jzAtt"${J.att&&J.att.busy?' disabled':''}>Navrhnúť dochádzku</button></div></div>`;
+  const busyAll=(J.prop&&J.prop.busy)||(J.att&&J.att.busy);
+  h+=`<div class="card"><h3 style="margin-bottom:8px">Navrhnúť z jázd</h3><label class="row" style="gap:6px;margin-bottom:6px"><input type="checkbox" data-act="jzSimple"${J.simple===false?'':' checked'}> Zahraničná cesta len tam a späť (bez jázd uprostred)</label><label class="row" style="gap:6px;margin-bottom:8px"><input type="checkbox" data-act="jzAttPrev"${J.attPrev?' checked':''}> Dochádzku najprv len zobraziť (nezapisovať rovno)</label><div class="row"><button class="btn" data-act="jzRun"${busyAll?' disabled':''}>${busyAll?'Pripravujem…':'Navrhnúť všetko'}</button><button class="btn sec sm" data-act="jzPropose"${busyAll?' disabled':''}>Len cestovné príkazy${J.spz?' ('+e(J.spz)+')':''}</button><button class="btn sec sm" data-act="jzAtt"${busyAll?' disabled':''}>Len dochádzku</button></div></div>`;
   if(!J.spz)return h+'<p class="muted">Vyberte vozidlo.</p>';
   const days=d.days||[];
   h+=`<div class="card"><h3 style="margin-bottom:8px">${e(J.spz)} · ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)}</h3>`;
@@ -759,6 +760,9 @@ function viewCpAtt(){
   if(!it.length)return h+'<p class="muted">Nie je čo zapísať.</p></div>';
   h+='<div class="wrap"><table><tr><th></th><th>Deň</th><th>Príchod</th><th>Odchod</th><th>Podľa</th><th></th></tr>'+it.map((x,i)=>{n+=X.sel[i]?1:0;return `<tr><td><input type="checkbox" data-act="cpAttSel" data-i="${i}"${X.sel[i]?' checked':''}${x.skip?' disabled':''} aria-label="Vybrať"></td><td>${dmy(x.day)}</td><td>${e(x.in)}</td><td>${e(x.out)}</td><td class="small">${e(x.why)}</td><td class="small muted">${e(x.skip||'')}</td></tr>`}).join('')+'</table></div>';
   return h+`<div class="row" style="margin-top:8px"><button class="btn" data-act="cpAttSave"${n&&!X.busy?'':' disabled'}>Zapísať vybrané (${n})</button></div></div>`}
+function viewAutoRes(){
+  const R=S.jz.auto;if(!R)return '';
+  return `<div class="card"><div class="row sp"><h3>Dochádzka z jázd zapísaná</h3><button class="btn sec sm" data-act="jzAutoClose">Zavrieť</button></div><p>Zapísané dni: <b>${R.added}</b>${R.skipped?`, preskočené: ${R.skipped} (už majú dochádzku, sú v ceste alebo mimo pomeru)`:''}.</p>${R.people.filter(p=>p.added||p.skipped).map(p=>`<div class="small">${e(p.user_name)}: ${p.added} dní${p.skipped?`, preskočené ${p.skipped}`:''}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="btn sec sm" data-act="jzAttUndo"${R.added?'':' disabled'}>Vrátiť späť</button><span class="muted small">Zmaže len zapísané dni, ktoré ste zatiaľ neupravili.</span></div></div>`}
 function viewProp(){
   const J=S.jz,X=J.prop;
   let h=`<div class="card"><h3>Návrh cestovných príkazov</h3>`;
@@ -784,7 +788,7 @@ Object.assign(handlers,{
     if(S.cp.att)X.busy=false;render()},
   cpAttClose(){S.cp.att=null;render()},
   cpAttSel(el){S.cp.att.sel[el.dataset.i]=el.checked;render()},
-  async cpAttSave(){const X=S.cp.att,items=X.data.items.filter((x,i)=>X.sel[i]&&!x.skip).map(x=>({user_id:x.user_id,day:x.day,in:x.in,out:x.out}));
+  async cpAttSave(){const X=S.cp.att,items=X.data.items.filter((x,i)=>X.sel[i]&&!x.skip).map(x=>({user_id:x.user_id,day:x.day,in:x.in,out:x.out,src:x.why==='jazdy'?'jazdy':''}));
     if(!items.length)return;X.busy=true;render();
     try{const r=await call('jazdyAttendanceApply',{company_id:S.companyId,items});S.cp.att=null;toast('Zapísaná dochádzka: '+r.added+' dní');await load();render()}catch(x){toast(x.message,true);X.busy=false;render()}},
   async jzAtt(){const X=S.jz.att={busy:true,data:null,sel:{}};render();
@@ -797,6 +801,18 @@ Object.assign(handlers,{
   async jzPropose(){const X=S.jz.prop={busy:true,data:null,sel:{}};render();
     try{X.data=await call('cpProposeAll',{company_id:S.companyId,ym:S.ym,spz:S.jz.spz||undefined,simplify:S.jz.simple!==false});X.data.groups.forEach((g,gi)=>g.trips.forEach((t,ti)=>{X.sel[gi+'_'+ti]=!t.exists&&!(t.warnings&&t.warnings.length)}))}catch(x){toast(x.message,true)}
     X.busy=false;S.cp.sub='navrh';render()},
+  jzAttPrev(el){S.jz.attPrev=el.checked;render()},
+  jzAutoClose(){S.jz.auto=null;render()},
+  async jzAttUndo(){if(!confirm('Zmazať zapísané dni z jázd, ktoré ste neupravili?'))return;try{const r=await call('jazdyAttendanceUndo',{company_id:S.companyId,ym:S.ym});S.jz.auto=null;toast('Vrátené späť: '+r.removed+' dní');await load();render()}catch(x){toast(x.message,true)}},
+  async jzRun(){const J=S.jz;J.prop={busy:true,data:null,sel:{}};J.att=J.attPrev?{busy:true,data:null,sel:{}}:null;J.auto=null;render();
+    const P=call('cpProposeAll',{company_id:S.companyId,ym:S.ym,spz:J.spz||undefined,simplify:J.simple!==false});
+    const A=J.attPrev?call('jazdyAttendance',{company_id:S.companyId,ym:S.ym}):call('jazdyAttendanceAuto',{company_id:S.companyId,ym:S.ym});
+    const [rp,ra]=await Promise.allSettled([P,A]);
+    const X=J.prop;X.busy=false;
+    if(rp.status==='fulfilled'){X.data=rp.value;X.data.groups.forEach((g,gi)=>g.trips.forEach((t,ti)=>{X.sel[gi+'_'+ti]=!t.exists&&!(t.warnings&&t.warnings.length)}))}else{J.prop=null;toast(rp.reason.message,true)}
+    if(ra.status==='fulfilled'){if(J.attPrev){const Y=J.att;Y.busy=false;Y.data=ra.value;Y.data.items.forEach((x,i)=>{Y.sel[i]=!x.skip})}else{J.auto=ra.value;await load()}}else{if(J.att)J.att.busy=false;toast(ra.reason.message,true)}
+    const nTrips=X.data?X.data.groups.reduce((a2,g)=>a2+g.trips.filter(t=>!t.exists).length,0):0;
+    S.cp.sub=nTrips||!(J.attPrev&&J.att&&J.att.data&&J.att.data.items.some(x=>!x.skip))?'navrh':'dochadzka';render()},
   jzSimple(el){S.jz.simple=el.checked;S.jz.prop=null;render()},
   jzPropOpen(el){const X=S.jz.prop;X.open=X.open||{};const g=el.dataset.g,cur=X.open[g]===undefined?X.data.groups.length<=2:X.open[g];X.open[g]=!cur;render()},
   jzAttOpen(el){const X=S.jz.att;X.open=X.open||{};const u=el.dataset.u;const us=new Set(X.data.items.map(x=>x.user_id));const cur=X.open[u]===undefined?us.size<=2:X.open[u];X.open[u]=!cur;render()},
