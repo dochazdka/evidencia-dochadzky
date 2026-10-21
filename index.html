@@ -155,6 +155,31 @@ const fmtH=min=>`${Math.floor(min/60)}:${pad(Math.round(min%60))}`;
 const fmtDec=h=>(Math.round(h*100)/100).toLocaleString('sk-SK',{minimumFractionDigits:0,maximumFractionDigits:2});
 const hmOf=m=>`${pad(Math.floor(m%1440/60))}:${pad(m%60)}`;
 const dmy=ds=>`${+ds.slice(8,10)}.${+ds.slice(5,7)}.`;
+const DOCK=['LEK','OCR','PN'];
+function wdRange(from,to,year){let n=0;for(let d=from;d<=to;d=addDay(d,1)){if(year&&d.slice(0,4)!==String(year))continue;const w=weekday(d);if(w===0||w===6||isHoliday(d))continue;n++}return n}
+function vacCount(uid,year,st){let n=0;for(const a of S.absences){if(a.user_id!==uid||a.kind!=='DOV'||st.indexOf(a.status)<0)continue;n+=wdRange(a.date_from,a.date_to,year)}return n}
+function vacText(u){if(u.dov_nar==null||u.dov_nar==='')return '';const y=today().slice(0,4),used=vacCount(u.id,y,['approved']),pend=vacCount(u.id,y,['pending']);return `Dovolenka ${y}: nárok ${u.dov_nar} dní · čerpané ${used}${pend?' · čaká '+pend:''} · zostáva <b>${u.dov_nar-used}</b>`}
+function absDocBit(a,mgr){if(DOCK.indexOf(a.kind)<0)return '';if(a.doc_name)return `<span class="pill ok">priepustka</span>`+(mgr?`<button class="btn sec sm" data-act="absDocOpen" data-id="${a.id}">Otvoriť</button>`:'');return `<label class="btn sec sm" style="cursor:pointer">📎 Priepustka<input type="file" accept="image/*,application/pdf" data-absdoc="${a.id}" style="display:none"></label>`}
+function absRow(a,mgr){
+  const st={pending:['warn','čaká'],approved:['ok','schválená'],rejected:['bad','zamietnutá']}[a.status]||['warn',a.status];
+  const per=`${dmy(a.date_from)}${a.date_to!==a.date_from?'–'+dmy(a.date_to):''}`;const info=[];
+  if(a.note)info.push(e(a.note));
+  if(a.status==='rejected'&&a.reason)info.push('dôvod: '+e(a.reason));
+  if(a.by&&a.by!=='zamestnanec')info.push('zadal '+e(a.by));
+  else if(a.status!=='pending'&&a.decided_by)info.push((a.status==='approved'?'schválil ':'zamietol ')+e(a.decided_by)+(a.decided_at?' '+dmyFull(a.decided_at.slice(0,10)):''));
+  const act=mgr?`<button class="btn bad sm" data-act="delAbs" data-id="${a.id}">Zmazať</button>`:(a.status==='pending'?`<button class="btn sec sm" data-act="cancelAbs" data-id="${a.id}">Zrušiť</button>`:'');
+  return `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="row sp"><span>${e(KINDS[a.kind])} · ${per}</span><span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${absDocBit(a,mgr)}<span class="pill ${st[0]}">${st[1]}</span>${act}</span></div>${info.length?`<div class="muted small">${info.join(' · ')}</div>`:''}</div>`}
+function absWarn(a){const w=[];const u=S.users.find(x=>x.id===a.user_id);
+  if(a.kind==='DOV'){const y=a.date_from.slice(0,4),cnt=wdRange(a.date_from,a.date_to,y);let t=`${cnt} pracovných dní`;if(u&&u.dov_nar!=null&&u.dov_nar!==''){const left=u.dov_nar-vacCount(u.id,y,['approved'])-cnt;t+=`, po schválení zostane ${left}${left<0?' ⚠ nad nárok':''}`}w.push(t)}
+  const ov=S.absences.filter(x=>x.id!==a.id&&x.user_id!==a.user_id&&x.company_id===a.company_id&&x.kind==='DOV'&&x.status!=='rejected'&&x.date_from<=a.date_to&&x.date_to>=a.date_from);
+  if(ov.length&&a.kind==='DOV')w.push('⚠ v tom čase má dovolenku: '+ov.map(x=>e((S.users.find(y=>y.id===x.user_id)||{name:'?'}).name)).join(', '));
+  return w.length?`<div class="muted small">${w.join(' · ')}</div>`:''}
+async function fileToData(f){
+  if(f.type==='application/pdf'){if(f.size>4e6)throw new Error('PDF je príliš veľké (max 4 MB).');return await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>no(new Error('Súbor sa nepodarilo prečítať.'));r.readAsDataURL(f)})}
+  let img;try{img=await createImageBitmap(f)}catch(_){if(f.size>4e6)throw new Error('Fotku sa nepodarilo spracovať, skúste menší súbor.');return await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>no(new Error('Súbor sa nepodarilo prečítať.'));r.readAsDataURL(f)})}
+  const sc=Math.min(1,1600/Math.max(img.width,img.height));const cv=document.createElement('canvas');cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);return cv.toDataURL('image/jpeg',0.75)}
+document.addEventListener('change',async ev=>{const t=ev.target;if(!t||!t.dataset||!t.dataset.absdoc||!t.files||!t.files[0])return;const f=t.files[0],id=t.dataset.absdoc;try{toast('Nahrávam priepustku…');const data=await fileToData(f);await call('absDoc',{id,data});await load();toast('Priepustka uložená')}catch(err){toast(err.message||'Nepodarilo sa nahrať',true)}});
+
 function nowLocal(){const p=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Bratislava',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());return p.replace(',','').slice(0,16)}
 const today=()=>nowLocal().slice(0,10), hhmm=()=>nowLocal().slice(11,16);
 const addDay=(ds,n)=>{const d=new Date(ds+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
@@ -173,7 +198,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v33';
+const APP_VER='test v34';
 const S={ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -318,9 +343,9 @@ function absForm(u,c){
   <div style="margin-top:8px"><label for="an">Poznámka</label><input id="an" name="note" maxlength="200"></div><div style="margin-top:10px"><button class="btn">Odoslať na schválenie</button></div></form>`}
 function absList(u){
   const mine=S.absences.filter(a=>a.user_id===u.id).sort((a,b)=>a.date_from<b.date_from?1:-1).slice(0,12);
-  if(!mine.length)return '';
-  const st={pending:['warn','čaká'],approved:['ok','schválená'],rejected:['bad','zamietnutá']};
-  return `<div class="card"><h3 style="margin-bottom:6px">Moje neprítomnosti</h3>${mine.map(a=>`<div class="row sp" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${e(KINDS[a.kind])} · ${dmy(a.date_from)}${a.date_to!==a.date_from?'–'+dmy(a.date_to):''}</span><span><span class="pill ${st[a.status][0]}">${st[a.status][1]}</span>${a.status==='pending'?`<button class="btn sec sm" data-act="cancelAbs" data-id="${a.id}">Zrušiť</button>`:''}</span></div>`).join('')}</div>`}
+  const vt=vacText(u);const vb=vt?`<p class="small" style="margin:0 0 6px">${vt}</p>`:'';
+  if(!mine.length)return vt?`<div class="card">${vb}</div>`:'';
+  return `<div class="card"><h3 style="margin-bottom:6px">Moje neprítomnosti</h3>${vb}${mine.map(a=>absRow(a,false)).join('')}</div>`}
 
 /* ---------- prehľad správca/admin ---------- */
 function viewOverview(){
@@ -344,7 +369,9 @@ function viewDetail(){
     h+=`<form class="card" data-form="mgrAbs" data-uid="${u.id}"><h3 style="margin-bottom:10px">Zapísať neprítomnosť</h3><div class="row"><div class="f"><label for="mk">Druh</label><select id="mk" name="kind">${Object.keys(KINDS).map(k=>`<option value="${k}">${KINDS[k]}</option>`).join('')}</select></div><div class="f"><label for="mf">Od</label><input id="mf" name="from" type="date" value="${S.ym}-01" required></div><div class="f"><label for="mt">Do</label><input id="mt" name="to" type="date" value="${S.ym}-01" required></div></div><div style="margin-top:10px"><button class="btn">Zapísať</button></div></form>`;
   }
   const abs=S.absences.filter(a=>a.user_id===u.id).sort((a,b)=>a.date_from<b.date_from?1:-1).slice(0,15);
-  if(abs.length)h+=`<div class="card"><h3 style="margin-bottom:6px">Neprítomnosti</h3>${abs.map(a=>`<div class="row sp" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${e(KINDS[a.kind])} · ${dmy(a.date_from)}${a.date_to!==a.date_from?'–'+dmy(a.date_to):''} <span class="pill ${a.status==='approved'?'ok':a.status==='pending'?'warn':'bad'}">${{approved:'schválená',pending:'čaká',rejected:'zamietnutá'}[a.status]}</span></span><button class="btn bad sm" data-act="delAbs" data-id="${a.id}">Zmazať</button></div>`).join('')}</div>`;
+  const vt=vacText(u);
+  h+=`<div class="card"><div class="row sp"><span class="small">${vt||'Nárok na dovolenku nie je zadaný.'}</span><button class="btn sec sm" data-act="editVac" data-id="${u.id}">Nárok</button></div></div>`;
+  if(abs.length)h+=`<div class="card"><h3 style="margin-bottom:6px">Neprítomnosti</h3>${abs.map(a=>absRow(a,true)).join('')}</div>`;
   return h}
 
 
@@ -426,7 +453,7 @@ function viewRequests(){
   const pa=S.absences.filter(a=>a.status==='pending'&&ids.has(a.company_id));
   const pc=S.corrections.filter(c=>c.status==='pending'&&ids.has(c.company_id));
   let h='';
-  h+=`<div class="card"><h3 style="margin-bottom:6px">Neprítomnosti na schválenie</h3>${pa.length?pa.map(a=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${e(nm(a.user_id))}</b> · ${e(KINDS[a.kind])} · ${dmy(a.date_from)}${a.date_to!==a.date_from?'–'+dmy(a.date_to):''}${a.note?`<div class="muted small">${e(a.note)}</div>`:''}<div class="row" style="margin-top:6px"><button class="btn sm" data-act="absOk" data-id="${a.id}">Schváliť</button><button class="btn bad sm" data-act="absNo" data-id="${a.id}">Zamietnuť</button></div></div>`).join(''):'<p class="muted">Nič nečaká.</p>'}</div>`;
+  h+=`<div class="card"><h3 style="margin-bottom:6px">Neprítomnosti na schválenie</h3>${pa.length?pa.map(a=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${e(nm(a.user_id))}</b> · ${e(KINDS[a.kind])} · ${dmy(a.date_from)}${a.date_to!==a.date_from?'–'+dmy(a.date_to):''}${a.note?`<div class="muted small">${e(a.note)}</div>`:''}${absWarn(a)}<div class="row" style="margin-top:6px;align-items:center"><button class="btn sm" data-act="absOk" data-id="${a.id}">Schváliť</button><button class="btn bad sm" data-act="absNo" data-id="${a.id}">Zamietnuť</button>${absDocBit(a,true)}</div></div>`).join(''):'<p class="muted">Nič nečaká.</p>'}</div>`;
   h+=`<div class="card"><h3 style="margin-bottom:6px">Opravy chýbajúceho odchodu</h3>${pc.length?pc.map(c=>{const en=allEntries().find(x=>x.id===c.entry_id);return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${e(nm(c.user_id))}</b> · ${en?dmy(en.day)+' príchod '+e(en.in_at.slice(11,16)):'záznam nenájdený'} → odchod <b>${e(c.out_time)}</b><div class="row" style="margin-top:6px"><button class="btn sm" data-act="corrOk" data-id="${c.id}">Schváliť</button><button class="btn bad sm" data-act="corrNo" data-id="${c.id}">Zamietnuť</button></div></div>`}).join(''):'<p class="muted">Nič nečaká.</p>'}</div>`;
   return h}
 
@@ -622,7 +649,9 @@ const handlers={
   saveEntry(el){const row=el.closest('[data-entry]');return mut('entrySave',{id:el.dataset.id,in:row.querySelector('[name=in]').value,out:row.querySelector('[name=out]').value},'Uložené')},
   delEntry(el){return mut('entryDelete',{id:el.dataset.id},'Zmazané')},
   absOk(el){return mut('absDecide',{id:el.dataset.id,ok:true})},
-  absNo(el){return mut('absDecide',{id:el.dataset.id,ok:false})},
+  absNo(el){const r=prompt('Dôvod zamietnutia (nepovinné):','');if(r===null)return;return mut('absDecide',{id:el.dataset.id,ok:false,reason:r})},
+  async absDocOpen(el){const w=window.open('','_blank');try{const r=await call('absDocUrl',{id:el.dataset.id});if(w)w.location=r.url;else location.href=r.url}catch(err){if(w)w.close();toast(err.message,true)}},
+  editVac(el){const u=S.users.find(x=>x.id===el.dataset.id);const v=prompt('Nárok na dovolenku v roku (dni):',u&&u.dov_nar!=null?u.dov_nar:'');if(v===null)return;return mut('userVacation',{id:el.dataset.id,days:String(v).replace(',','.')},'Uložené')},
   cancelAbs(el){return mut('absDelete',{id:el.dataset.id})},
   delAbs(el){return mut('absDelete',{id:el.dataset.id})},
   corrOk(el){return mut('corrDecide',{id:el.dataset.id,ok:true},'Opravené')},
