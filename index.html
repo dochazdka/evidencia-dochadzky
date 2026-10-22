@@ -259,7 +259,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v43';
+const APP_VER='test v44';
 const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -859,9 +859,18 @@ function strRows(c,M){const rm=+c.meal_rate||0,rs=+c.sf_rate||0,rate=rm+rs,M1=ym
   const users=S.users.filter(u=>(u.role==='employee'||u.role==='manager')&&u.company_id===c.id&&!u.no_meal&&(u.active!==false||st.some(x=>x.user_id===u.id&&(x.ym===M||x.ym===M2)))).sort((a,b)=>a.name.localeCompare(b.name,'sk'));
   return users.map(u=>{const row=ym=>st.find(x=>x.user_id===u.id&&x.ym===ym);const A=row(M),A1=row(M1),A2=row(M2);
     const nd=userMonth(u,M).tot.meal_days,Bm=r2(nd*rm),Bs=r2(nd*rs),aAmt=A?r2(A.meal_amt+A.sf_amt):null;
-    const prepl=A?r2(aAmt-Bm-Bs):0,D2=strPlanDays(u,c,M2),full=r2(D2*rate),C=r2(Math.max(0,full-prepl)),rest=prepl>full?r2(prepl-full):0;
+    const prepl=A?r2(aAmt-Bm-Bs):0,D2=strPlanDays(u,c,M2),full=r2(D2*rate),C=full,rest=0;
     const Cm=rate?r2(C*rm/rate):0,Cs=r2(C-Cm),D1=strPlanDays(u,c,M1);
     return{u,A,A1,A2,nd,Bm,Bs,aAmt,prepl,D2,full,C,Cm,Cs,rest,D1,spol:!!u.spol}})}
+/** Podklad do miezd: po zamestnancoch sumy pre zložky (preddavok sa neznižuje, preplatok/doplatok ide zvlášť v Vyúčtovaní). */
+const STR_ZL=['Fin. príspevok na stravovanie','Príspevok na stravovanie (SF)','Nezdaniteľné náhrady - Diéty','Vyúčtovanie fin. príspevku na stravovanie','Nezdaniteľné náhrady - Záloha'];
+function strMzdy(c,M,rows){const D=strDiety(c,M);
+  return rows.map(r=>({u:r.u,os:r.u.os_cislo||'',v:[r2(r.Bm),r2(r.Bs),r2((D.by.find(x=>x.u.id===r.u.id)||{}).amt||0),r.A?r2(-r.prepl):0,r.A2?r2(r.A2.meal_amt+r.A2.sf_amt):r.C]}))
+    .concat(D.by.filter(x=>!rows.some(r=>r.u.id===x.u.id)).map(x=>({u:x.u,os:x.u.os_cislo||'',v:[0,0,x.amt,0,0]})))
+    .filter(x=>x.v.some(n=>n))}
+function strMzdyTable(c,M,rows,pdf){const L=strMzdy(c,M,rows),sg=n=>n<0?'−'+fmtEur(-n):fmtEur(n);
+  const tot=i=>r2(L.reduce((s,x)=>s+x.v[i],0));
+  return `<table><thead><tr><th>Os. č.</th><th>Zamestnanec</th>${STR_ZL.map(z=>`<th class="r">${e(z)}</th>`).join('')}</tr></thead><tbody>${L.map(x=>`<tr><td>${e(x.os)}</td><td>${e(x.u.name)}${x.u.spol?' (spoločník)':''}</td>${x.v.map((n,i)=>`<td class="r">${n?(i===3?sg(n):fmtEur(n)):'–'}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="7">${pdf?'':'<span class="muted">'}Žiadne položky.${pdf?'':'</span>'}</td></tr>`}</tbody>${L.length?`<tfoot><tr><th></th><th>Spolu</th>${STR_ZL.map((z,i)=>`<th class="r">${i===3?sg(tot(i)):fmtEur(tot(i))}</th>`).join('')}</tr></tfoot>`:''}</table>`}
 function strLines(c,M,rows){const cfg=strCfg(c),a=cfg.acc,rm=+c.meal_rate||0,rs=+c.sf_rate||0,rt=rm+rs;
   const nd=r2(rows.reduce((s,r)=>s+r.nd,0)),Bm=r2(rows.reduce((s,r)=>s+r.Bm,0)),Bs=r2(rows.reduce((s,r)=>s+r.Bs,0));
   const adv=sp=>{const l=rows.filter(r=>r.spol===sp);return{d:r2(l.reduce((s,r)=>s+(r.A2?r.A2.days:r.D2),0)),amt:r2(l.reduce((s,r)=>s+(r.A2?r.A2.meal_amt+r.A2.sf_amt:r.C),0))}};
@@ -895,12 +904,12 @@ function viewStravne(){
   let body=rows.map(r=>{
     const a=r.A?`${fmtEur(r.aAmt)}<div class="muted small">${fmtDec(r.A.days)} d · ${dmyFull(String(r.A.paid_at).slice(0,10))}${r.A.kind==='mimo'?' · mimo mzdy':r.A.kind==='rucne'?' · zadané ručne':''}</div>`:pill('chýba','warn');
     const diff=!r.A?'–':r.prepl>0?`${pill('preplatok','warn')} ${fmtEur(r.prepl)}`:r.prepl<0?`${pill('doplatok','warn')} ${fmtEur(-r.prepl)}`:'0,00 €';
-    const nx=r.A2?`${fmtEur(r.A2.meal_amt+r.A2.sf_amt)} ${pill(r.A2.kind==='mzdy'?'zafixované':'uložené','ok')}<div class="muted small">${fmtDec(r.A2.days)} d</div>`:`${fmtEur(r.C)}<div class="muted small">${fmtDec(r.D2)} d × ${fmt2(rate)} €${r.prepl?' − '+fmtEur(r.prepl):''}</div>${r.rest?`<div class="small" style="color:#b9770e">zostáva ${fmtEur(r.rest)} na zrážku</div>`:''}`;
+    const nx=r.A2?`${fmtEur(r.A2.meal_amt+r.A2.sf_amt)} ${pill(r.A2.kind==='mzdy'?'zafixované':'uložené','ok')}<div class="muted small">${fmtDec(r.A2.days)} d</div>`:`${fmtEur(r.C)}<div class="muted small">${fmtDec(r.D2)} d × ${fmt2(rate)} €</div>${r.rest?`<div class="small" style="color:#b9770e">zostáva ${fmtEur(r.rest)} na zrážku</div>`:''}`;
     return `<tr><td>${e(r.u.name)}${r.spol?' '+pill('spoločník'):''}</td><td class="r">${a}</td><td class="r">${fmtDec(r.nd)} d<div class="muted small">${fmtEur(r.Bm+r.Bs)}</div></td><td class="r">${diff}</td><td class="r">${nx}</td></tr>`}).join('');
   if(!body)body=`<tr><td colspan="5" class="muted">Vo firme nie sú zamestnanci s nárokom na stravné.</td></tr>`;
   const tot=(f)=>fmtEur(rows.reduce((s,r)=>s+f(r),0));
   let h=`<div class="card">${monthNav()}<div class="row sp" style="margin-bottom:8px"><span>${locked?pill('Mesiac je uzavretý','warn'):pill('Otvorený – nárok je zatiaľ predbežný')}</span></div>
-  <p class="muted small" style="margin:0 0 8px">Mzdy za ${strLab(M)}: vyúčtuje sa skutočný nárok za ${strLab(M)} a vyplatí sa preddavok na ${strLab(M2)}. Sadzba ${fmt2(rm)} + ${fmt2(rs)} SF = ${fmt2(rate)} €/deň.</p>
+  <p class="muted small" style="margin:0 0 8px">Mzdy za ${strLab(M)}: vyúčtuje sa skutočný nárok za ${strLab(M)} (preplatok alebo doplatok) a vyplatí sa plný preddavok na ${strLab(M2)}. Sadzba ${fmt2(rm)} + ${fmt2(rs)} SF = ${fmt2(rate)} €/deň.</p>
   <div class="wrap"><table><thead><tr><th>Zamestnanec</th><th class="r">Preddavok na ${strLab(M).split(' ')[0]}</th><th class="r">Nárok</th><th class="r">Rozdiel</th><th class="r">Preddavok na ${strLab(M2).split(' ')[0]}</th></tr></thead><tbody>${body}</tbody>
   ${rows.length?`<tfoot><tr><th>Spolu</th><th class="r">${tot(r=>r.aAmt||0)}</th><th class="r">${tot(r=>r.Bm+r.Bs)}</th><th class="r">${tot(r=>r.prepl)}</th><th class="r">${tot(r=>r.A2?r.A2.meal_amt+r.A2.sf_amt:r.C)}</th></tr></tfoot>`:''}</table></div>
   <div class="row" style="margin-top:10px">${rows.some(r=>!r.A2)?`<button class="btn"${locked?'':' disabled'} data-act="strFixAll">Zafixovať preddavky na ${strLab(M2)}</button>${locked?'':'<span class="muted small">Preddavok sa dá zafixovať po uzavretí mesiaca.</span>'}`:''}${fixed?`<button class="btn sec sm" data-act="strUndo">Zrušiť zafixovanie</button>`:''}</div></div>`;
@@ -909,11 +918,12 @@ function viewStravne(){
   if(miss.length)h+=`<form class="card" data-form="strManual"><h3 style="margin-bottom:6px">Chýbajúce preddavky</h3><p class="muted small" style="margin:0 0 8px">Preddavok na ${strLab(M)} potrebuje appka na vyúčtovanie (zadajte už vyplatený). Nový zamestnanec dostáva prvé dva mesiace vyplatené mimo mzdy: zaškrtnite riadok po vyplatení. Dni a sumu môžete upraviť.</p>
     <div class="wrap"><table><thead><tr><th></th><th>Zamestnanec</th><th>Na mesiac</th><th>Dni</th><th>Suma €</th><th>Spôsob</th></tr></thead><tbody>${miss.map((x,i)=>{const d=x.ym===M?strPlanDays(x.r.u,c,M):x.r.D1;return `<tr><td><input type="checkbox" name="ck${i}" value="1" style="width:auto"><input type="hidden" name="u${i}" value="${x.r.u.id}"><input type="hidden" name="m${i}" value="${x.ym}"></td><td>${e(x.r.u.name)}</td><td>${strLab(x.ym)}</td><td><input name="d${i}" value="${fmtDec(d).replace(/\s/g,'')}" inputmode="decimal" style="width:64px"></td><td><input name="t${i}" value="${String(r2(d*rate)).replace('.',',')}" inputmode="decimal" style="width:84px"></td><td><select name="k${i}"><option value="mimo"${x.k==='mimo'?' selected':''}>mimo mzdy</option><option value="rucne"${x.k==='rucne'?' selected':''}>už vyplatené v mzdách</option></select></td></tr>`}).join('')}</tbody></table></div>
     <div style="margin-top:10px"><button class="btn">Uložiť zaškrtnuté</button></div></form>`;
+  h+=`<div class="card"><h3 style="margin-bottom:6px">Podklad do miezd za ${strLab(M)}</h3><p class="muted small" style="margin:0 0 8px">Sumy na zadanie do zložiek v mzdách. Vyúčtovanie: mínus = preplatok (zrážka), plus = doplatok. Záloha je plný preddavok na ${strLab(M2)}.</p><div class="wrap">${strMzdyTable(c,M,rows,false)}</div></div>`;
   // riadky pre interný doklad
   const L=strLines(c,M,rows);
   h+=`<div class="card"><h3 style="margin-bottom:6px">Podklad na interný doklad – mzdy za ${strLab(M)}</h3>${locked?'':'<div class="note" style="margin-bottom:8px">Mesiac nie je uzavretý, čísla sú predbežné.</div>'}
   <div class="wrap"><table><thead><tr><th>Označenie</th><th class="r">Množstvo</th><th class="r">Sadzba</th><th class="r">Suma</th><th>MD</th><th>D</th></tr></thead><tbody>${L.map(l=>`<tr><td>${e(l.t)}</td><td class="r">${fmtDec(l.q)}</td><td class="r">${fmt2(l.rate)}</td><td class="r">${fmtEur(l.amt)}</td><td>${e(l.md)}</td><td>${e(l.d)}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Žiadne položky.</td></tr>'}</tbody></table></div>
-  ${rows.some(r=>r.rest)?`<p class="muted small" style="margin:8px 0 0">Na vyrovnanie zrážkou (preplatok je vyšší ako nový preddavok): ${rows.filter(r=>r.rest).map(r=>e(r.u.name)+' '+fmtEur(r.rest)).join(', ')}.</p>`:''}
+  ${rows.some(r=>r.prepl>r.full)?`<div class="note" style="margin-top:8px">Preplatok je vyšší ako preddavok na ďalší mesiac (zrážka sa nemusí zmestiť do výplaty): ${rows.filter(r=>r.prepl>r.full).map(r=>e(r.u.name)+' – preplatok '+fmtEur(r.prepl)+', preddavok '+fmtEur(r.full)).join('; ')}.</div>`:''}
   <p class="muted small" style="margin:8px 0 0">Preddavky vyplatené mimo mzdy sa účtujú výpisom (${e(strCfg(c).acc.pohl)} / ${e(strCfg(c).acc.banka)}). Tvorbu SF robí Pohoda pri zaúčtovaní miezd.</p>
   ${(()=>{const D=strDiety(c,M);return D.ok?(D.by.length?`<p class="muted small" style="margin:6px 0 0">Diéty z cestovných príkazov (podľa konca cesty v mesiaci): ${D.by.map(x=>e(x.u.name)+(x.u.spol?' (spoločník)':'')+' '+fmtEur(x.amt)).join(', ')}.</p>`:'<p class="muted small" style="margin:6px 0 0">V mesiaci nie sú cestovné príkazy.</p>'):'<p class="muted small" style="margin:6px 0 0">Načítavam cestovné príkazy…</p>'})()}
   <div class="row" style="margin-top:10px"><button class="btn sec"${locked?'':' disabled'} data-act="strPdf">Podklad (PDF) do Drive</button><button class="btn"${locked&&c.ico?'':' disabled'} data-act="strXml">XML interný doklad do Pohody</button></div>
@@ -925,7 +935,7 @@ function strPdfHtml(c,M,){const rows=strRows(c,M),L=strLines(c,M,rows),M2=ymAdd(
   h+=`<h1>Stravné – mzdy za ${strLab(M)}</h1><div>${e(c.name)} · sadzba ${fmt2(+c.meal_rate||0)} + ${fmt2(+c.sf_rate||0)} SF = ${fmt2(rate)} €/deň</div><small>Vytvorené ${new Date().toLocaleString('sk-SK')}.</small>`;
   h+=`<h2>Preddavky a skutočný nárok</h2><table><tr><th>Zamestnanec</th><th class="r">Preddavok na ${strLab(M)}</th><th class="r">Nárok (dni)</th><th class="r">Nárok €</th><th class="r">Rozdiel</th><th class="r">Preddavok na ${strLab(M2)}</th></tr>`;
   for(const r of rows){const nx=r.A2?r.A2.meal_amt+r.A2.sf_amt:r.C;h+=`<tr><td>${e(r.u.name)}${r.spol?' (spoločník)':''}</td><td class="r">${r.A?fmtEur(r.aAmt):'chýba'}</td><td class="r">${fmtDec(r.nd)}</td><td class="r">${fmtEur(r.Bm+r.Bs)}</td><td class="r">${r.A?fmtEur(r.prepl):'–'}</td><td class="r">${fmtEur(nx)}${r.rest?' (zostáva '+fmtEur(r.rest)+' na zrážku)':''}</td></tr>`}
-  h+=`</table><h2>Podklad na interný doklad</h2><table><tr><th>Označenie</th><th class="r">Množstvo</th><th class="r">Sadzba</th><th class="r">Suma</th><th>MD</th><th>D</th></tr>`;
+  h+=`</table><h2>Podklad do miezd</h2>${strMzdyTable(c,M,rows,true)}<h2>Podklad na interný doklad</h2><table><tr><th>Označenie</th><th class="r">Množstvo</th><th class="r">Sadzba</th><th class="r">Suma</th><th>MD</th><th>D</th></tr>`;
   for(const l of L)h+=`<tr><td>${e(l.t)}</td><td class="r">${fmtDec(l.q)}</td><td class="r">${fmt2(l.rate)}</td><td class="r">${fmtEur(l.amt)}</td><td>${e(l.md)}</td><td>${e(l.d)}</td></tr>`;
   return h+`</table><p><small>Preddavky vyplatené mimo mzdy sa účtujú výpisom. Tvorba SF a diéty z cestovných príkazov nie sú súčasťou tohto podkladu.</small></p></body></html>`}
 
