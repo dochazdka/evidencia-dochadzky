@@ -220,7 +220,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v35';
+const APP_VER='test v36';
 const S={ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -321,14 +321,26 @@ function pendingCount(){const ids=new Set(myCompanies().map(c=>c.id));return S.a
 function monthNav(){return `<div class="row sp" style="margin-bottom:12px"><button class="btn sec sm" data-act="month" data-d="-1" aria-label="Predchádzajúci mesiac">‹</button><b>${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)}</b><button class="btn sec sm" data-act="month" data-d="1" aria-label="Nasledujúci mesiac">›</button></div>`}
 
 /* ---------- zamestnanec ---------- */
+function noteRow(uid,day){return (S.notes||[]).find(n=>n.user_id===uid&&n.day===day)}
+function brkNote(uid,day,man){const n=noteRow(uid,day);if(n&&n.brk_by==='zamestnanec'&&n.brk_from)return ` (zadaná ${e(n.brk_from)}–${e(n.brk_to)})`;return man?' (upravil správca)':''}
+function addMinHm(t,m){const[h,mi]=t.split(':').map(Number),x=Math.min(23*60+59,h*60+mi+m);return pad(Math.floor(x/60))+':'+pad(x%60)}
+function brkForm(u,c){const t=today(),now=hhmm(),r=rulesOf(c),n=noteRow(u.id,t),mine=n&&n.brk_by==='zamestnanec'&&n.brk_from;
+  return `<form class="card" data-form="brk"><h3 style="margin-bottom:10px">Prestávka</h3>${mine?`<p class="small" style="margin:0 0 8px">Dnes zadaná: ${e(n.brk_from)}–${e(n.brk_to)} (${e(n.brk)} min) <button type="button" class="btn sec sm" data-act="brkClear" data-day="${t}">Zrušiť zadanú</button></p>`:''}
+  <div class="row"><div class="f"><label for="bd">Deň</label><input id="bd" name="day" type="date" value="${t}" max="${t}" required></div><div class="f"><label for="bf">Od</label><input id="bf" name="from" type="time" value="${now}" required></div><div class="f"><label for="bt">Do</label><input id="bt" name="to" type="time" value="${addMinHm(now,30)}" required></div></div>
+  <p class="muted small" style="margin:8px 0 0">Pri práci nad ${fd(r.break1_after/60)} h sa kratšia prestávka upraví na ${r.break1_min} min, najviac ${120} min. Ak prestávku nezadáte, započíta sa automaticky.</p>
+  <div class="row" style="margin-top:10px"><button class="btn">Uložiť prestávku</button><button type="button" class="btn sec" data-act="brkToggle">Zavrieť</button></div></form>`}
 function viewEmployee(){
   const u=S.me,c=companyOf(u.company_id);
   if(!c)return `<div class="card">Firma nie je nastavená. Obráťte sa na administrátora.</div>`;
+  S.emp=S.emp||{screen:'home',brk:false};const scr=S.emp.screen;
   const mine=allEntries().filter(x=>x.user_id===u.id);
   const open=mine.filter(x=>!x.out_at).sort((a,b)=>a.in_at<b.in_at?1:-1)[0];
   const t=today();
-  const m=userMonth(u,S.ym);
   const locked=isLocked(c.id,S.ym);
+  const back=`<div style="margin-bottom:10px"><button class="btn sec sm" data-act="empScreen" data-s="home">‹ Späť</button></div>`;
+  if(scr==='prehlad'){const m=userMonth(u,S.ym);
+    return back+`<div class="tiles"><div class="tile"><b>${fmtH(m.tot.net)}</b><span>odpracované</span></div><div class="tile"><b>${fmtDec(m.fund)} h</b><span>fond</span></div><div class="tile"><b>${fmtDec(m.overtime)} h</b><span>nadčas</span></div><div class="tile"><b>${m.tot.meal_days}</b><span>dní so stravným</span></div></div><div class="card">${monthNav()}${locked?'<p class="pill warn">Mesiac je uzavretý</p>':''}${dayList(u,m,false,c)}</div>`}
+  if(scr==='abs')return back+absForm(u,c)+absList(u);
   let h='';
   const modeQr=c.mode!=='manual';
   h+=`<div class="card${open?' hi':''}"><div class="row sp" style="margin-bottom:10px"><h2>${open?'V práci od '+e(open.in_at.slice(11,16)):'Nie ste v práci'}</h2><span class="muted small">${e(c.name)} · ${dmy(t)}</span></div>
@@ -337,9 +349,9 @@ function viewEmployee(){
   <div style="margin-top:10px"><button class="btn big">${open?'Zaznamenať odchod':'Zaznamenať príchod'}</button></div></form>
   <p class="muted small" style="margin:8px 0 0">Čas môžete upraviť. Do výpočtu sa zaokrúhli na ${rulesOf(c).round_min} min.</p>`}</div>`;
   if(open&&open.day<t)h+=`<div class="note">Máte neukončený záznam z ${dmy(open.day)}. Ak ste zabudli odísť, pošlite žiadosť o opravu v zozname nižšie.</div>`;
-  h+=`<div class="tiles"><div class="tile"><b>${fmtH(m.tot.net)}</b><span>odpracované</span></div><div class="tile"><b>${fmtDec(m.fund)} h</b><span>fond</span></div><div class="tile"><b>${fmtDec(m.overtime)} h</b><span>nadčas</span></div><div class="tile"><b>${m.tot.meal_days}</b><span>dní so stravným</span></div></div>`;
-  h+=`<div class="card">${monthNav()}${locked?'<p class="pill warn">Mesiac je uzavretý</p>':''}${dayList(u,m,false,c)}</div>`;
-  h+=absForm(u,c)+absList(u);
+  const pend=S.absences.filter(a=>a.user_id===u.id&&a.status==='pending').length;
+  h+=`<div style="display:flex;gap:10px;margin:0 0 12px"><button class="btn big sec" style="flex:1" data-act="empScreen" data-s="prehlad">Prehľad</button><button class="btn big sec" style="flex:1" data-act="empScreen" data-s="abs">Neprítomnosť${pend?` <span class="pill warn">${pend} čaká</span>`:''}</button></div>`;
+  if(mine.length)h+=S.emp.brk?brkForm(u,c):`<div style="margin:0 0 12px"><button class="btn sec" data-act="brkToggle">Prestávka</button></div>`;
   return h}
 
 function dayList(u,m,editable,c){
@@ -354,7 +366,7 @@ function dayList(u,m,editable,c){
         if(!en.out_at&&en.day<t){const pend=S.corrections.find(x=>x.entry_id===en.id&&x.status==='pending');
           out+=pend?`<div class="muted small">Žiadosť o opravu odoslaná (${e(pend.out_time)}).</div>`:`<form class="entry" data-form="corr" data-id="${en.id}"><input type="time" name="t" required aria-label="Skutočný čas odchodu"><button class="btn sec sm">Požiadať o opravu</button></form>`}}
     }
-    if(d.parts&&d.parts.length)out+=`<div class="muted small">započítané ${d.parts.map(p=>hmOf(p[0])+'–'+hmOf(p[1])).join(', ')}${d.brk?` · prestávka −${d.brk} min`:''} (zaokrúhlenie ${rulesOf(c).round_min} min)</div>`;
+    if(d.parts&&d.parts.length)out+=`<div class="muted small">započítané ${d.parts.map(p=>hmOf(p[0])+'–'+hmOf(p[1])).join(', ')}${d.brk?` · prestávka −${d.brk} min${brkNote(u.id,d.date,d.man)}`:''} (zaokrúhlenie ${rulesOf(c).round_min} min)</div>`;
     if(d.abs)out+=`<span class="pill ok">${d.abs==='SV'?'Sviatok':e(KINDS[d.abs]||d.abs)}</span>`;
     out+=`</div><div class="n">${d.net?fmtH(d.net):''}</div></div>`;
   }
@@ -700,6 +712,9 @@ const handlers={
   scanDone(){S.scan=null;render()},
   scanRetry(){return runScan()},
   cam(){return openCam()},
+  empScreen(el){S.emp=S.emp||{};S.emp.screen=el.dataset.s;S.emp.brk=false;render()},
+  brkToggle(){S.emp=S.emp||{screen:'home'};S.emp.brk=!S.emp.brk;render()},
+  async brkClear(el){await call('breakSave',{day:el.dataset.day,clear:true});await load();toast('Zadaná prestávka zrušená')},
   expAbs(){const c=companyOf(S.companyId);const r=xmlFor(c,'abs');S.exportText=xmlFor(c,'abs',true).xml;saveFile(fileName('nepritomnosti',c,'xml'),toCp1250(r.xml),'application/xml');render()},
   expWage(){const c=companyOf(S.companyId);const r=xmlFor(c,'wage');S.exportText=xmlFor(c,'wage',true).xml;saveFile(fileName('zlozky-mzdy',c,'xml'),toCp1250(r.xml),'application/xml');render()},
   expCsv(){const c=companyOf(S.companyId);const rows=[['Meno','Os. číslo','Dni','Odpracované h','Fond h','Nadčas h','Noc h','Sobota h','Nedeľa h','Sviatok h','Stravné dni']];
@@ -708,6 +723,7 @@ const handlers={
 };
 
 const forms={
+  brk:async f=>{const r=await call('breakSave',{day:f.get('day'),from:f.get('from'),to:f.get('to')});S.emp=S.emp||{};S.emp.brk=false;await load();toast(r.raised?`Prestávka uložená, započítaných ${r.brk} min (zákonné minimum)`:`Prestávka uložená (${r.brk} min)`)},
   cpCounter:(f)=>call('cpCounter',{company_id:S.companyId,nZ:f.get('nZ'),nT:f.get('nT')}).then(()=>{S.cp.loaded='';toast('Uložené');schedule()}),
   cpRate:(f)=>call('cpRateSave',{id:f.get('id'),name:f.get('name'),cur:f.get('cur'),rate:String(f.get('rate')).replace(',','.')}).then(()=>{S.cp.loaded='';toast('Uložené');schedule()}),
   login:doLogin,
