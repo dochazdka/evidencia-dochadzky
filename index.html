@@ -259,8 +259,8 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v40';
-const S={addreqs:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
+const APP_VER='test v41';
+const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
 let TOK=null;try{TOK=localStorage.getItem('dtok')}catch(_){}
@@ -273,7 +273,7 @@ function call(action,args){
     .then(r=>{if(r&&r.ok)return r.data;const er=new Error((r&&r.error)||'Chyba servera');er.auth=/Prihláste|Relácia vypršala|Účet nie je/.test(er.message);throw er})}
 async function load(){
   try{const d=await call('state',{ym:S.ym});
-    Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],ready:true});try{localStorage.setItem('dstate',JSON.stringify({ym:S.ym,d:d}))}catch(_){}
+    Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],ready:true});try{localStorage.setItem('dstate',JSON.stringify({ym:S.ym,d:d}))}catch(_){}
     if(!S.companyId||!S.companies.some(c=>c.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;
     schedule()}
   catch(x){if(x.auth){dropSession();render()}else{S.ready=true;toast(x.message,true)}}}
@@ -346,14 +346,14 @@ function viewShell(){
   let h=`<div class="top"><div class="brand"><i></i>Dochádzka <span class="ver">${APP_VER}</span></div><div class="row" style="flex-wrap:nowrap"><div class="who"><b>${e(name)}</b>${rn}</div><button class="btn sec sm" data-act="logout">Odhlásiť</button></div></div>`;
   if(r==='employee')return h+viewEmployee();
   if(!cs.length&&r==='manager')return h+`<div class="card">Zatiaľ vám nebola pridelená žiadna firma.</div>`;
-  const tabs=[['ziadosti','Žiadosti'+(pendingCount()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${pendingCount()}</b>`:'')],['prehlad','Prehľad'],['cesty','Cesty'],['ludia','Ľudia']];
+  const tabs=[['ziadosti','Žiadosti'+(pendingCount()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${pendingCount()}</b>`:'')],['prehlad','Prehľad'],['cesty','Cesty'],['stravne','Stravné'],['ludia','Ľudia']];
   if(r==='manager'&&S.me.company_id)tabs.unshift(['moja','Moja dochádzka']);
   if(r==='admin')tabs.push(['firma','Firmy'],['export','Export Pohoda']);
   if(!cs.length&&r==='admin')S.tab='firma';
   h+=`<div class="tabs" role="tablist">${tabs.map(t=>`<button role="tab" data-act="tab" data-v="${t[0]}" aria-current="${S.tab===t[0]&&!S.detailId}">${t[1]}</button>`).join('')}</div>`;
   if(cs.length>1&&S.tab!=='firma')h+=`<div class="card"><label for="cs">Firma</label><select id="cs" data-act="company">${cs.map(c=>`<option value="${c.id}"${c.id===S.companyId?' selected':''}>${e(c.name)}</option>`).join('')}</select></div>`;
   if(S.detailId&&S.tab==='prehlad')return h+viewDetail();
-  return h+({prehlad:viewOverview,ziadosti:viewRequests,ludia:viewPeople,export:viewExport,cesty:viewCesty,moja:viewEmployee,firma:viewCompanies}[S.tab]||viewOverview)();
+  return h+({prehlad:viewOverview,ziadosti:viewRequests,ludia:viewPeople,export:viewExport,cesty:viewCesty,stravne:viewStravne,moja:viewEmployee,firma:viewCompanies}[S.tab]||viewOverview)();
 }
 function pendingCount(){const ids=new Set(myCompanies().map(c=>c.id));return S.absences.filter(a=>a.status==='pending'&&ids.has(a.company_id)).length+S.corrections.filter(c=>c.status==='pending'&&ids.has(c.company_id)).length+(S.addreqs||[]).filter(a=>a.status==='pending'&&ids.has(a.company_id)).length}
 
@@ -554,7 +554,7 @@ function viewPeople(){
   if(S.newPin)h+=`<div class="card hi"><b>${e(S.newPin.name)}</b><div class="muted small">prihlasovacie meno: <b>${e(S.newPin.username)}</b></div><div class="pin">${e(S.newPin.pin)}</div><p class="muted small" style="margin:4px 0 8px">PIN sa zobrazí len teraz. Odovzdajte ho zamestnancovi.</p><button class="btn sec sm" data-act="hidePin">Skryť</button></div>`;
   if(S.users.some(u=>u.fixed_from&&u.company_id===S.companyId))h+=`<div class="card"><b>Pevná pracovná doba</b><p class="muted small" style="margin:4px 0 8px">Doplní dochádzku za ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)} zamestnancom s pevnou dobou (pracovné dni po dnes, bez sviatkov, neprítomností a dní s existujúcim záznamom).</p><button class="btn" data-act="fillFixed">Doplniť pevnú dobu za mesiac</button></div>`;
   const list=S.users.filter(u=>u.role!=='admin'&&(u.company_id===S.companyId||(u.companies||[]).includes(S.companyId)));
-  h+=`<div class="card"><div class="wrap"><table><thead><tr><th>Meno</th><th>Meno na prihlásenie</th><th>Rola</th><th></th></tr></thead><tbody>${list.sort((a,b)=>a.name.localeCompare(b.name,'sk')).map(u=>`<tr${u.active===false?' style="opacity:.5"':''}><td>${e(u.name)}${u.os_cislo?`<div class="muted small">os. č. ${e(u.os_cislo)}</div>`:''}${u.address?`<div class="muted small">${e(u.address)}</div>`:''}${u.fixed_from?`<div class="muted small">pevná doba ${e(u.fixed_from)}–${e(u.fixed_to)}</div>`:''}${u.no_meal?`<div class="muted small">bez nároku na stravné</div>`:''}${u.cp_role?`<div class="muted small">v jazdách: ${u.cp_role==='vodic'?'vodič':'spolujazdec'}</div>`:''}${u.emp_from||u.emp_to?`<div class="muted small">pracovný pomer ${u.emp_from?'od '+dmyFull(u.emp_from):''}${u.emp_to?' do '+dmyFull(u.emp_to):''}</div>`:''}<div class="muted small">${u.role==='manager'?(u.companies||[]).map(id=>(companyOf(id)||{name:'?'}).name).join(', '):(companyOf(u.company_id)||{name:'?'}).name}</div></td><td>${e(u.username)}</td><td>${u.role==='manager'?'správca':'zamestnanec'}</td><td class="r"><button class="btn sec sm" data-act="resetPin" data-id="${u.id}">Nový PIN</button> <button class="btn sec sm" data-act="editAddr" data-id="${u.id}">Bydlisko</button> ${u.company_id?`<button class="btn sec sm" data-act="editFixed" data-id="${u.id}">Pevná doba</button> <button class="btn sec sm" data-act="editEmp" data-id="${u.id}">Pracovný pomer</button> <button class="btn sec sm" data-act="cpRoleCycle" data-id="${u.id}" title="Vodič sa ponúka v jazdách ako vodič aj spolujazdec, spolujazdec len ako spolujazdec">Rola v jazdách: ${u.cp_role==='vodic'?'vodič':u.cp_role==='spolujazdec'?'spolujazdec':'—'}</button> <button class="btn sec sm" data-act="toggleNoMeal" data-id="${u.id}">${u.no_meal?'Stravné áno':'Bez stravného'}</button>`:''}${r==='admin'&&u.company_id&&u.role!=='admin'?` <button class="btn sec sm" data-act="toggleMgr" data-id="${u.id}">${u.role==='manager'?'Len zamestnanec':'Aj správca'}</button>`:''}${r==='admin'&&u.role==='manager'&&!u.company_id?` <button class="btn sec sm" data-act="alsoEmp" data-id="${u.id}">Aj zamestnanec</button>`:''} <button class="btn sec sm" data-act="toggleActive" data-id="${u.id}">${u.active===false?'Aktivovať':'Vypnúť'}</button></td></tr>`).join('')||'<tr><td colspan="4" class="muted">Zatiaľ nikto.</td></tr>'}</tbody></table></div></div>`;
+  h+=`<div class="card"><div class="wrap"><table><thead><tr><th>Meno</th><th>Meno na prihlásenie</th><th>Rola</th><th></th></tr></thead><tbody>${list.sort((a,b)=>a.name.localeCompare(b.name,'sk')).map(u=>`<tr${u.active===false?' style="opacity:.5"':''}><td>${e(u.name)}${u.os_cislo?`<div class="muted small">os. č. ${e(u.os_cislo)}</div>`:''}${u.address?`<div class="muted small">${e(u.address)}</div>`:''}${u.fixed_from?`<div class="muted small">pevná doba ${e(u.fixed_from)}–${e(u.fixed_to)}</div>`:''}${u.no_meal?`<div class="muted small">bez nároku na stravné</div>`:''}${u.spol?`<div class="muted small">spoločník (konateľ)</div>`:''}${u.cp_role?`<div class="muted small">v jazdách: ${u.cp_role==='vodic'?'vodič':'spolujazdec'}</div>`:''}${u.emp_from||u.emp_to?`<div class="muted small">pracovný pomer ${u.emp_from?'od '+dmyFull(u.emp_from):''}${u.emp_to?' do '+dmyFull(u.emp_to):''}</div>`:''}<div class="muted small">${u.role==='manager'?(u.companies||[]).map(id=>(companyOf(id)||{name:'?'}).name).join(', '):(companyOf(u.company_id)||{name:'?'}).name}</div></td><td>${e(u.username)}</td><td>${u.role==='manager'?'správca':'zamestnanec'}</td><td class="r"><button class="btn sec sm" data-act="resetPin" data-id="${u.id}">Nový PIN</button> <button class="btn sec sm" data-act="editAddr" data-id="${u.id}">Bydlisko</button> ${u.company_id?`<button class="btn sec sm" data-act="editFixed" data-id="${u.id}">Pevná doba</button> <button class="btn sec sm" data-act="editEmp" data-id="${u.id}">Pracovný pomer</button> <button class="btn sec sm" data-act="cpRoleCycle" data-id="${u.id}" title="Vodič sa ponúka v jazdách ako vodič aj spolujazdec, spolujazdec len ako spolujazdec">Rola v jazdách: ${u.cp_role==='vodic'?'vodič':u.cp_role==='spolujazdec'?'spolujazdec':'—'}</button> <button class="btn sec sm" data-act="toggleNoMeal" data-id="${u.id}">${u.no_meal?'Stravné áno':'Bez stravného'}</button> <button class="btn sec sm" data-act="toggleSpol" data-id="${u.id}" title="Konateľ / spoločník – záloha na stravné sa účtuje cez 366">${u.spol?'Nie je spoločník':'Spoločník'}</button>`:''}${r==='admin'&&u.company_id&&u.role!=='admin'?` <button class="btn sec sm" data-act="toggleMgr" data-id="${u.id}">${u.role==='manager'?'Len zamestnanec':'Aj správca'}</button>`:''}${r==='admin'&&u.role==='manager'&&!u.company_id?` <button class="btn sec sm" data-act="alsoEmp" data-id="${u.id}">Aj zamestnanec</button>`:''} <button class="btn sec sm" data-act="toggleActive" data-id="${u.id}">${u.active===false?'Aktivovať':'Vypnúť'}</button></td></tr>`).join('')||'<tr><td colspan="4" class="muted">Zatiaľ nikto.</td></tr>'}</tbody></table></div></div>`;
   if(!cs.length)return h;
   h+=`<form class="card" data-form="addUser"><h3 style="margin-bottom:10px">Pridať človeka</h3><div class="row"><div class="f"><label for="un">Meno a priezvisko</label><input id="un" name="name" required></div><div class="f"><label for="uu">Prihlasovacie meno</label><input id="uu" name="username" placeholder="doplní sa z mena"></div></div>
   <div class="row" style="margin-top:8px"><div class="f"><label for="ur">Rola</label><select id="ur" name="role"><option value="employee">Zamestnanec</option>${r==='admin'?'<option value="both">Správca a zamestnanec</option><option value="manager">Len správca (nie je zamestnanec)</option>':''}</select></div>
@@ -591,6 +591,7 @@ function viewCompanies(){
     <div class="row" style="margin-top:8px"><div class="f"><label>Zložka mzdy – noc (voliteľné)</label><input name="w_night" value="${e(wageName(c,'night'))}"></div><div class="f"><label>Zložka mzdy – sobota (voliteľné)</label><input name="w_saturday" value="${e(wageName(c,'saturday'))}"></div><div class="f"><label>Zložka mzdy – nedeľa (voliteľné)</label><input name="w_sunday" value="${e(wageName(c,'sunday'))}"></div></div>
     <p class="muted small">Názvy zložiek musia presne zodpovedať číselníku Zložky mzdy v Pohode. Prázdne políčko sa neexportuje.</p>
     <div style="margin-top:8px"><button class="btn">Uložiť firmu</button></div></form>
+    ${strCfgCard(c)}
     <div class="card"><h3>Pracoviská a QR kódy · ${e(c.name)}</h3><p class="muted small" style="margin:4px 0 0">Každé pracovisko má jeden pevný QR kód pre príchod a jeden pre odchod. Platnosť dochádzky chráni kontrola polohy. Ak by sa kód zneužil, vygenerujte nové.</p>
     ${S.locations.filter(l=>l.company_id===c.id).map(l=>locForm(l,c.id)).join('')}${locForm(null,c.id)}</div>`}
   h+=`<form class="card" data-form="addCompany"><h3 style="margin-bottom:10px">Nová firma</h3><div class="row"><div class="f"><label for="nc">Názov</label><input id="nc" name="name" required></div><div class="f"><label for="ni">IČO</label><input id="ni" name="ico"></div></div><div style="margin-top:10px"><button class="btn">Založiť firmu</button></div></form>`;
@@ -712,6 +713,7 @@ const handlers={
     const btn=document.getElementById('gsave');if(btn){btn.disabled=true;btn.textContent='Ukladám…'}
     try{await call('entriesBatch',{user_id:g.dataset.uid,ym:S.ym,ops});S.gridDirty=false;await load();toast('Uložené ('+ops.length+')')}
     catch(x){if(btn){btn.disabled=false;btn.textContent='Uložiť zmeny'}throw x}},
+  toggleSpol(el){const u=S.users.find(x=>x.id===el.dataset.id);return mut('userSpol',{id:el.dataset.id,v:!(u&&u.spol)},'Uložené')},
   toggleNoMeal(el){const u=S.users.find(x=>x.id===el.dataset.id);return mut('userNoMeal',{id:el.dataset.id,v:!(u&&u.no_meal)},'Uložené')},
   async editEmp(el){const u=S.users.find(x=>x.id===el.dataset.id);if(!u)return;
     const cur=(u.emp_from||'')+' - '+(u.emp_to||'');
@@ -762,6 +764,9 @@ const handlers={
   delAbs(el){return mut('absDelete',{id:el.dataset.id})},
   corrOk(el){return mut('corrDecide',{id:el.dataset.id,ok:true},'Opravené')},
   corrNo(el){return mut('corrDecide',{id:el.dataset.id,ok:false})},
+  async strFixAll(el){const c=companyOf(S.companyId);if(!c)return;const M=S.ym,M2=ymAdd(M,2),items=strRows(c,M).filter(r=>!r.A2).map(r=>({user_id:r.u.id,ym:M2,days:r.D2,meal_amt:r.Cm,sf_amt:r.Cs,kind:'mzdy'}));if(!items.length)return;el.disabled=true;try{await call('stravneSave',{company_id:c.id,items});await load();toast('Preddavky na '+strLab(M2)+' zafixované')}finally{el.disabled=false}},
+  async strUndo(el){const c=companyOf(S.companyId);if(!c)return;if(!confirm('Zrušiť zafixované preddavky na '+strLab(ymAdd(S.ym,2))+'?'))return;const M2=ymAdd(S.ym,2),ids=(S.stravne||[]).filter(x=>x.company_id===c.id&&x.ym===M2&&x.kind==='mzdy').map(x=>x.id);if(!ids.length)return;await call('stravneDel',{ids});await load();toast('Zafixovanie zrušené')},
+  async strPdf(el){const c=companyOf(S.companyId);if(!c)return;el.disabled=true;toast('Vytváram PDF…');try{const r=await call('stravnePdf',{company_id:c.id,ym:S.ym,html:strPdfHtml(c,S.ym)});toast('PDF uložené do Drive: '+r.name);window.open(r.url,'_blank')}catch(err){toast(err.message||'Export sa nepodaril',true)}finally{el.disabled=false}},
   async absExport(el){const c=companyOf(S.companyId);if(!c)return;el.disabled=true;toast('Vytváram PDF…');try{const r=await call('absExport',{company_id:c.id,ym:S.ym,html:absExportHtml(c,S.ym)});toast('PDF uložené do Drive: '+r.name);window.open(r.url,'_blank')}catch(err){toast(err.message||'Export sa nepodaril',true)}finally{el.disabled=false}},
   lock(){return mut('lock',{company_id:S.companyId,ym:S.ym,locked:true},'Mesiac uzavretý')},
   unlock(){return mut('lock',{company_id:S.companyId,ym:S.ym,locked:false},'Mesiac odomknutý')},
@@ -807,14 +812,93 @@ const forms={
   async addCompany(f){const r=await call('companyAdd',{name:f.get('name'),ico:f.get('ico')});S.companyId=r.id;await load();toast('Firma založená')},
   saveCompany:(f,form)=>mut('companySave',{id:form.dataset.id,name:f.get('name'),ico:f.get('ico'),round_min:f.get('round_min'),meal_h:f.get('meal_h'),b1_h:f.get('b1_h'),b1_min:f.get('b1_min'),b2_h:f.get('b2_h'),b2_min:f.get('b2_min'),meal_rate:f.get('meal_rate'),sf_rate:f.get('sf_rate'),mode:f.get('mode'),geo:f.get('geo'),
     wage_map:{overtime:f.get('w_overtime').trim(),holiday:f.get('w_holiday').trim(),night:f.get('w_night').trim(),saturday:f.get('w_saturday').trim(),sunday:f.get('w_sunday').trim()}},'Uložené'),
+  saveStrCfg:(f,form)=>mut('stravneCfg',{company_id:form.dataset.id,skip:f.get('skip')==='1',acc:{nakl:f.get('a_nakl'),sf:f.get('a_sf'),pohl:f.get('a_pohl'),zam:f.get('a_zam'),spol:f.get('a_spol'),banka:f.get('a_banka')}},'Uložené'),
+  strManual:async(f)=>{const c=companyOf(S.companyId),rm=+c.meal_rate||0,rs=+c.sf_rate||0,rate=rm+rs,items=[];for(let i=0;f.has('u'+i);i++){if(f.get('ck'+i)!=='1')continue;const tot=+String(f.get('t'+i)).replace(',','.')||0,m=rate?Math.round(tot*rm/rate*100)/100:tot;items.push({user_id:f.get('u'+i),ym:f.get('m'+i),days:+String(f.get('d'+i)).replace(',','.')||0,meal_amt:m,sf_amt:Math.round((tot-m)*100)/100,kind:f.get('k'+i)})}
+    if(!items.length){toast('Zaškrtnite riadky, ktoré chcete uložiť.',true);return}await call('stravneSave',{company_id:c.id,items});await load();toast('Preddavky uložené')},
   saveLoc:(f,form)=>mut('locationSave',{id:form.dataset.id||undefined,company_id:form.dataset.cid,name:f.get('name'),lat:f.get('lat'),lng:f.get('lng'),radius:f.get('radius')},'Uložené')
 };
-const KEEP=['saveCompany','login','saveLoc'];
+const KEEP=['saveCompany','login','saveLoc','saveStrCfg','strManual'];
 $app.addEventListener('click',ev=>{const el=ev.target.closest('[data-act]');if(!el||el.tagName==='SELECT')return;if(S.gridDirty&&!GRID_ACTS.has(el.dataset.act)){if(!confirm('Máte neuložené zmeny v tabuľke. Zahodiť ich?'))return;S.gridDirty=false}const fn=handlers[el.dataset.act];if(fn){ev.preventDefault();safe(()=>fn(el))}});
 $app.addEventListener('change',ev=>{const el=ev.target;if(el.tagName==='SELECT'&&el.dataset.act){const fn=handlers[el.dataset.act];if(fn)safe(()=>fn(el))}});
 $app.addEventListener('submit',ev=>{const form=ev.target.closest('[data-form]');if(!form)return;ev.preventDefault();const fn=forms[form.dataset.form];if(!fn)return;const f=new FormData(form);
   safe(async()=>{await fn(f,form);if(form.isConnected&&KEEP.indexOf(form.dataset.form)<0)form.reset()})});
 
+
+
+/* ===================== STRAVNÉ (preddavok, nárok, podklad pre interný doklad) ===================== */
+const r2=x=>Math.round(x*100)/100;
+const fmt2=n=>(Math.round(n*100)/100).toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtEur=n=>(Math.round(n*100)/100).toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const ymAdd=(ym,n)=>{let y=+ym.slice(0,4),m=+ym.slice(5,7)+n;while(m>12){m-=12;y++}while(m<1){m+=12;y--}return y+'-'+pad(m)};
+const strLab=ym=>MONTHS[+ym.slice(5,7)-1]+' '+ym.slice(0,4);
+function strCfg(c){const g=c.str_cfg||{};return{skip:!!g.skip,acc:Object.assign({nakl:'527002',sf:'472001',pohl:'335001',zam:'331001',spol:'366001',banka:'221001'},g.acc||{})}}
+/** Pracovné dni mesiaca, na ktoré sa počíta preddavok: v pracovnom pomere, bez sviatkov; podľa nastavenia bez schválených neprítomností. */
+function strPlanDays(u,c,ym){const cfg=strCfg(c);let n=0;
+  for(let d=1;d<=daysInMonth(ym);d++){const ds=`${ym}-${pad(d)}`,w=weekday(ds);if(w===0||w===6||isHoliday(ds))continue;
+    if(u.emp_from&&ds<u.emp_from)continue;if(u.emp_to&&ds>u.emp_to)continue;
+    let f=1;if(cfg.skip){const a=S.absences.find(x=>x.user_id===u.id&&x.status==='approved'&&x.kind!=='A'&&x.date_from<=ds&&x.date_to>=ds);if(a)f=1-absW(a)}
+    n+=f}
+  return n}
+/** Riadky pre mzdy za mesiac M: preddavok na M (vyplatený skôr), nárok M, preplatok, preddavok na M+2 (návrh alebo zafixovaný). */
+function strRows(c,M){const rm=+c.meal_rate||0,rs=+c.sf_rate||0,rate=rm+rs,M1=ymAdd(M,1),M2=ymAdd(M,2),st=S.stravne||[];
+  const users=S.users.filter(u=>(u.role==='employee'||u.role==='manager')&&u.company_id===c.id&&!u.no_meal&&(u.active!==false||st.some(x=>x.user_id===u.id&&(x.ym===M||x.ym===M2)))).sort((a,b)=>a.name.localeCompare(b.name,'sk'));
+  return users.map(u=>{const row=ym=>st.find(x=>x.user_id===u.id&&x.ym===ym);const A=row(M),A1=row(M1),A2=row(M2);
+    const nd=userMonth(u,M).tot.meal_days,Bm=r2(nd*rm),Bs=r2(nd*rs),aAmt=A?r2(A.meal_amt+A.sf_amt):null;
+    const prepl=A?r2(aAmt-Bm-Bs):0,D2=strPlanDays(u,c,M2),full=r2(D2*rate),C=r2(Math.max(0,full-prepl)),rest=prepl>full?r2(prepl-full):0;
+    const Cm=rate?r2(C*rm/rate):0,Cs=r2(C-Cm),D1=strPlanDays(u,c,M1);
+    return{u,A,A1,A2,nd,Bm,Bs,aAmt,prepl,D2,full,C,Cm,Cs,rest,D1,spol:!!u.spol}})}
+function strLines(c,M,rows){const cfg=strCfg(c),a=cfg.acc,rm=+c.meal_rate||0,rs=+c.sf_rate||0,rt=rm+rs;
+  const nd=r2(rows.reduce((s,r)=>s+r.nd,0)),Bm=r2(rows.reduce((s,r)=>s+r.Bm,0)),Bs=r2(rows.reduce((s,r)=>s+r.Bs,0));
+  const adv=sp=>{const l=rows.filter(r=>r.spol===sp);return{d:r2(l.reduce((s,r)=>s+(r.A2?r.A2.days:r.D2),0)),amt:r2(l.reduce((s,r)=>s+(r.A2?r.A2.meal_amt+r.A2.sf_amt:r.C),0))}};
+  const z=adv(false),sp=adv(true);
+  return[{t:'Finančný príspevok stravovanie - zákonný',q:nd,rate:rm,amt:Bm,md:a.nakl,d:a.pohl},{t:'Finančný príspevok stravovanie - SF',q:nd,rate:rs,amt:Bs,md:a.sf,d:a.pohl},
+    {t:'Záloha na stravovanie - zamestnanci (na '+strLab(ymAdd(M,2))+')',q:rt?r2(z.amt/rt):0,rate:rt,amt:z.amt,md:a.pohl,d:a.zam},{t:'Záloha na stravovanie - spoločníci (na '+strLab(ymAdd(M,2))+')',q:rt?r2(sp.amt/rt):0,rate:rt,amt:sp.amt,md:a.pohl,d:a.spol}].filter(l=>l.amt||l.q)}
+function strCfgCard(c){const g=strCfg(c),a=g.acc;const f=(k,t)=>`<div class="f"><label>${t}</label><input name="a_${k}" value="${e(a[k])}" inputmode="numeric"></div>`;
+  return `<form class="card" data-form="saveStrCfg" data-id="${c.id}"><h3 style="margin-bottom:6px">Stravné – nastavenie · ${e(c.name)}</h3>
+  <label style="display:flex;gap:8px;align-items:center;font-size:14px;color:inherit;font-weight:400"><input type="checkbox" name="skip" value="1"${g.skip?' checked':''} style="width:auto"> Do preddavku nepočítať schválené neprítomnosti (dovolenka, PN, OČR, lekár…)</label>
+  <p class="muted small" style="margin:6px 0">Čísla účtov pre podklad na interný doklad:</p>
+  <div class="row">${f('nakl','Náklad – stravné')}${f('sf','Sociálny fond')}${f('pohl','Pohľadávka voči zamestnancom')}</div>
+  <div class="row" style="margin-top:8px">${f('zam','Záväzok voči zamestnancom')}${f('spol','Spoločníci')}${f('banka','Banka')}</div>
+  <div style="margin-top:8px"><button class="btn sm">Uložiť</button></div></form>`}
+function viewStravne(){
+  const c=companyOf(S.companyId);if(!c)return `<div class="card">Najprv založte firmu v záložke Firmy.</div>`;
+  const M=S.ym,M1=ymAdd(M,1),M2=ymAdd(M,2),locked=isLocked(c.id,M),rm=+c.meal_rate||0,rs=+c.sf_rate||0,rate=rm+rs;
+  if(!(rate>0))return `<div class="card">${monthNav()}<div class="note">Pri firme ${e(c.name)} nie je nastavené Stravné €/deň ani Príspevok SF. Nastaví ich administrátor v záložke Firmy.</div></div>`;
+  const rows=strRows(c,M),fixed=rows.filter(r=>r.A2&&r.A2.kind==='mzdy').length;
+  const pill=(t,k)=>`<span class="pill${k?' '+k:''}">${t}</span>`;
+  let body=rows.map(r=>{
+    const a=r.A?`${fmtEur(r.aAmt)}<div class="muted small">${fmtDec(r.A.days)} d · ${dmyFull(String(r.A.paid_at).slice(0,10))}${r.A.kind==='mimo'?' · mimo mzdy':r.A.kind==='rucne'?' · zadané ručne':''}</div>`:pill('chýba','warn');
+    const diff=!r.A?'–':r.prepl>0?`${pill('preplatok','warn')} ${fmtEur(r.prepl)}`:r.prepl<0?`${pill('doplatok','warn')} ${fmtEur(-r.prepl)}`:'0,00 €';
+    const nx=r.A2?`${fmtEur(r.A2.meal_amt+r.A2.sf_amt)} ${pill(r.A2.kind==='mzdy'?'zafixované':'uložené','ok')}<div class="muted small">${fmtDec(r.A2.days)} d</div>`:`${fmtEur(r.C)}<div class="muted small">${fmtDec(r.D2)} d × ${fmt2(rate)} €${r.prepl?' − '+fmtEur(r.prepl):''}</div>${r.rest?`<div class="small" style="color:#b9770e">zostáva ${fmtEur(r.rest)} na zrážku</div>`:''}`;
+    return `<tr><td>${e(r.u.name)}${r.spol?' '+pill('spoločník'):''}</td><td class="r">${a}</td><td class="r">${fmtDec(r.nd)} d<div class="muted small">${fmtEur(r.Bm+r.Bs)}</div></td><td class="r">${diff}</td><td class="r">${nx}</td></tr>`}).join('');
+  if(!body)body=`<tr><td colspan="5" class="muted">Vo firme nie sú zamestnanci s nárokom na stravné.</td></tr>`;
+  const tot=(f)=>fmtEur(rows.reduce((s,r)=>s+f(r),0));
+  let h=`<div class="card">${monthNav()}<div class="row sp" style="margin-bottom:8px"><span>${locked?pill('Mesiac je uzavretý','warn'):pill('Otvorený – nárok je zatiaľ predbežný')}</span></div>
+  <p class="muted small" style="margin:0 0 8px">Mzdy za ${strLab(M)}: vyúčtuje sa skutočný nárok za ${strLab(M)} a vyplatí sa preddavok na ${strLab(M2)}. Sadzba ${fmt2(rm)} + ${fmt2(rs)} SF = ${fmt2(rate)} €/deň.</p>
+  <div class="wrap"><table><thead><tr><th>Zamestnanec</th><th class="r">Preddavok na ${strLab(M).split(' ')[0]}</th><th class="r">Nárok</th><th class="r">Rozdiel</th><th class="r">Preddavok na ${strLab(M2).split(' ')[0]}</th></tr></thead><tbody>${body}</tbody>
+  ${rows.length?`<tfoot><tr><th>Spolu</th><th class="r">${tot(r=>r.aAmt||0)}</th><th class="r">${tot(r=>r.Bm+r.Bs)}</th><th class="r">${tot(r=>r.prepl)}</th><th class="r">${tot(r=>r.A2?r.A2.meal_amt+r.A2.sf_amt:r.C)}</th></tr></tfoot>`:''}</table></div>
+  <div class="row" style="margin-top:10px">${rows.some(r=>!r.A2)?`<button class="btn"${locked?'':' disabled'} data-act="strFixAll">Zafixovať preddavky na ${strLab(M2)}</button>${locked?'':'<span class="muted small">Preddavok sa dá zafixovať po uzavretí mesiaca.</span>'}`:''}${fixed?`<button class="btn sec sm" data-act="strUndo">Zrušiť zafixovanie</button>`:''}</div></div>`;
+  // chýbajúce preddavky (ručne / mimo mzdy)
+  const miss=[];rows.forEach(r=>{if(!r.A&&(r.nd>0||strPlanDays(r.u,c,M)>0))miss.push({r,ym:M,k:'rucne'});if(!r.A1&&r.D1>0)miss.push({r,ym:M1,k:'mimo'})});
+  if(miss.length)h+=`<form class="card" data-form="strManual"><h3 style="margin-bottom:6px">Chýbajúce preddavky</h3><p class="muted small" style="margin:0 0 8px">Preddavok na ${strLab(M)} potrebuje appka na vyúčtovanie (zadajte už vyplatený). Nový zamestnanec dostáva prvé dva mesiace vyplatené mimo mzdy: zaškrtnite riadok po vyplatení. Dni a sumu môžete upraviť.</p>
+    <div class="wrap"><table><thead><tr><th></th><th>Zamestnanec</th><th>Na mesiac</th><th>Dni</th><th>Suma €</th><th>Spôsob</th></tr></thead><tbody>${miss.map((x,i)=>{const d=x.ym===M?strPlanDays(x.r.u,c,M):x.r.D1;return `<tr><td><input type="checkbox" name="ck${i}" value="1" style="width:auto"><input type="hidden" name="u${i}" value="${x.r.u.id}"><input type="hidden" name="m${i}" value="${x.ym}"></td><td>${e(x.r.u.name)}</td><td>${strLab(x.ym)}</td><td><input name="d${i}" value="${fmtDec(d).replace(/\s/g,'')}" inputmode="decimal" style="width:64px"></td><td><input name="t${i}" value="${String(r2(d*rate)).replace('.',',')}" inputmode="decimal" style="width:84px"></td><td><select name="k${i}"><option value="mimo"${x.k==='mimo'?' selected':''}>mimo mzdy</option><option value="rucne"${x.k==='rucne'?' selected':''}>už vyplatené v mzdách</option></select></td></tr>`}).join('')}</tbody></table></div>
+    <div style="margin-top:10px"><button class="btn">Uložiť zaškrtnuté</button></div></form>`;
+  // riadky pre interný doklad
+  const L=strLines(c,M,rows);
+  h+=`<div class="card"><h3 style="margin-bottom:6px">Podklad na interný doklad – mzdy za ${strLab(M)}</h3>${locked?'':'<div class="note" style="margin-bottom:8px">Mesiac nie je uzavretý, čísla sú predbežné.</div>'}
+  <div class="wrap"><table><thead><tr><th>Označenie</th><th class="r">Množstvo</th><th class="r">Sadzba</th><th class="r">Suma</th><th>MD</th><th>D</th></tr></thead><tbody>${L.map(l=>`<tr><td>${e(l.t)}</td><td class="r">${fmtDec(l.q)}</td><td class="r">${fmt2(l.rate)}</td><td class="r">${fmtEur(l.amt)}</td><td>${e(l.md)}</td><td>${e(l.d)}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Žiadne položky.</td></tr>'}</tbody></table></div>
+  ${rows.some(r=>r.rest)?`<p class="muted small" style="margin:8px 0 0">Na vyrovnanie zrážkou (preplatok je vyšší ako nový preddavok): ${rows.filter(r=>r.rest).map(r=>e(r.u.name)+' '+fmtEur(r.rest)).join(', ')}.</p>`:''}
+  <p class="muted small" style="margin:8px 0 0">Preddavky vyplatené mimo mzdy sa účtujú výpisom (${e(strCfg(c).acc.pohl)} / ${e(strCfg(c).acc.banka)}). Tvorbu SF a diéty z cestovných príkazov riešite zvlášť.</p>
+  <div class="row" style="margin-top:10px"><button class="btn sec"${locked?'':' disabled'} data-act="strPdf">Podklad (PDF) do Drive</button></div></div>`;
+  return h}
+function strPdfHtml(c,M,){const rows=strRows(c,M),L=strLines(c,M,rows),M2=ymAdd(M,2),rate=(+c.meal_rate||0)+(+c.sf_rate||0);
+  let h=`<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;font-size:11px;color:#111}h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;margin:16px 0 6px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:4px 6px;text-align:left}th{background:#eee}.r{text-align:right}small{color:#555}</style></head><body>`;
+  h+=`<h1>Stravné – mzdy za ${strLab(M)}</h1><div>${e(c.name)} · sadzba ${fmt2(+c.meal_rate||0)} + ${fmt2(+c.sf_rate||0)} SF = ${fmt2(rate)} €/deň</div><small>Vytvorené ${new Date().toLocaleString('sk-SK')}.</small>`;
+  h+=`<h2>Preddavky a skutočný nárok</h2><table><tr><th>Zamestnanec</th><th class="r">Preddavok na ${strLab(M)}</th><th class="r">Nárok (dni)</th><th class="r">Nárok €</th><th class="r">Rozdiel</th><th class="r">Preddavok na ${strLab(M2)}</th></tr>`;
+  for(const r of rows){const nx=r.A2?r.A2.meal_amt+r.A2.sf_amt:r.C;h+=`<tr><td>${e(r.u.name)}${r.spol?' (spoločník)':''}</td><td class="r">${r.A?fmtEur(r.aAmt):'chýba'}</td><td class="r">${fmtDec(r.nd)}</td><td class="r">${fmtEur(r.Bm+r.Bs)}</td><td class="r">${r.A?fmtEur(r.prepl):'–'}</td><td class="r">${fmtEur(nx)}${r.rest?' (zostáva '+fmtEur(r.rest)+' na zrážku)':''}</td></tr>`}
+  h+=`</table><h2>Podklad na interný doklad</h2><table><tr><th>Označenie</th><th class="r">Množstvo</th><th class="r">Sadzba</th><th class="r">Suma</th><th>MD</th><th>D</th></tr>`;
+  for(const l of L)h+=`<tr><td>${e(l.t)}</td><td class="r">${fmtDec(l.q)}</td><td class="r">${fmt2(l.rate)}</td><td class="r">${fmtEur(l.amt)}</td><td>${e(l.md)}</td><td>${e(l.d)}</td></tr>`;
+  return h+`</table><p><small>Preddavky vyplatené mimo mzdy sa účtujú výpisom. Tvorba SF a diéty z cestovných príkazov nie sú súčasťou tohto podkladu.</small></p></body></html>`}
 
 /* ===================== CESTOVNÉ PRÍKAZY ===================== */
 const CNAME={SK:'Slovensko',CZ:'Česká republika',HU:'Maďarsko',PL:'Poľsko',AT:'Rakúsko',DE:'Nemecko',RO:'Rumunsko',HR:'Chorvátsko',SI:'Slovinsko',IT:'Taliansko'};
@@ -1070,7 +1154,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
 (async function start(){
   render();
   if(TOK){let c=null;try{c=JSON.parse(localStorage.getItem('dstate')||'null')}catch(_){}
-    if(c&&c.d&&c.d.me&&c.ym===S.ym){const d=c.d;Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],ready:true});if(!S.companyId||!S.companies.some(x=>x.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;render();load()}else await load()}else{S.ready=true;render()}
+    if(c&&c.d&&c.d.me&&c.ym===S.ym){const d=c.d;Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],ready:true});if(!S.companyId||!S.companies.some(x=>x.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;render();load()}else await load()}else{S.ready=true;render()}
   if(S.me)afterLogin();
   setInterval(()=>{if(S.me&&!document.hidden&&!S.scan&&!S.qrView&&!S.cp.draft&&!S.cpPrint)load()},60000);
 })();
