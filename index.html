@@ -178,7 +178,7 @@ function ovWarn(c){const w=[],y=S.ym.slice(0,4);for(const u of employees(c.id)){
   for(const k of ['self','family']){const n=lekCount(u.id,y,k);if(n>LEK_LIMIT)w.push(`${u.name}: lekár ${k==='self'?'pre seba':'rodina'} nad limit (${fd(n)}/${LEK_LIMIT})`)}
   const nd=S.absences.filter(a=>a.user_id===u.id&&DOCK.indexOf(a.kind)>=0&&a.status==='approved'&&!a.doc_name&&a.date_from<=S.ym+'-31'&&a.date_to>=S.ym+'-01').length;if(nd)w.push(`${u.name}: chýba priepustka (${nd}×)`)}
   return w}
-function absDocBit(a,mgr){if(DOCK.indexOf(a.kind)<0)return '';if(a.doc_name)return `<span class="pill ok">priepustka</span>`+(mgr?`<button class="btn sec sm" data-act="absDocOpen" data-id="${a.id}">Otvoriť</button>`:'');return `<label class="btn sec sm" style="cursor:pointer">📎 Priepustka<input type="file" accept="image/*,application/pdf" data-absdoc="${a.id}" style="display:none"></label>`}
+function absDocBit(a,mgr){if(DOCK.indexOf(a.kind)<0)return '';if(a.doc_name)return `<span class="pill ok">priepustka</span>`+(mgr?`<button class="btn sec sm" data-act="absDocOpen" data-id="${a.id}">Otvoriť</button>`:'');return `<label class="btn sec sm" style="cursor:pointer">📎 Priepustka<input type="file" accept="image/*" data-absdoc="${a.id}" style="display:none"></label>`}
 function absRow(a,mgr){
   const st={pending:['warn','čaká'],approved:['ok','schválená'],rejected:['bad','zamietnutá']}[a.status]||['warn',a.status];
   const per=`${dmy(a.date_from)}${a.date_to!==a.date_from?'–'+dmy(a.date_to):''}${a.part==='half'?' (pol dňa)':''}`;const info=[];
@@ -196,9 +196,42 @@ function absWarn(a){const w=[];const u=S.users.find(x=>x.id===a.user_id);
   if(ov.length&&a.kind==='DOV')w.push('⚠ v tom čase má dovolenku: '+ov.map(x=>e((S.users.find(y=>y.id===x.user_id)||{name:'?'}).name)).join(', '));
   return w.length?`<div class="muted small">${w.join(' · ')}</div>`:''}
 async function fileToData(f){
-  if(f.type==='application/pdf'){if(f.size>4e6)throw new Error('PDF je príliš veľké (max 4 MB).');return await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>no(new Error('Súbor sa nepodarilo prečítať.'));r.readAsDataURL(f)})}
+  if(f.type==='application/pdf'||(f.type&&f.type.indexOf('image/')!==0))throw new Error('Priepustku nahrajte ako fotku (obrázok).');
   let img;try{img=await createImageBitmap(f)}catch(_){if(f.size>4e6)throw new Error('Fotku sa nepodarilo spracovať, skúste menší súbor.');return await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>no(new Error('Súbor sa nepodarilo prečítať.'));r.readAsDataURL(f)})}
   const sc=Math.min(1,1600/Math.max(img.width,img.height));const cv=document.createElement('canvas');cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);return cv.toDataURL('image/jpeg',0.75)}
+
+const ABS_ST={approved:'schválená',pending:'čaká na schválenie'};
+function absMonthDays(a,ym){const f=ym+'-01',l=ym+'-'+pad(daysInMonth(ym));let n=0;for(let d=a.date_from>f?a.date_from:f;d<=(a.date_to<l?a.date_to:l);d=addDay(d,1)){const w=weekday(d);if(w===0||w===6||isHoliday(d))continue;n++}return n*absW(a)}
+function absExportHtml(c,ym){
+  const f=ym+'-01',l=ym+'-'+pad(daysInMonth(ym)),un=id=>(S.users.find(u=>u.id===id)||{name:'?'}).name,ttl=MONTHS[+ym.slice(5)-1]+' '+ym.slice(0,4);
+  const list=S.absences.filter(a=>a.company_id===c.id&&a.status!=='rejected'&&a.date_from<=l&&a.date_to>=f).sort((x,y)=>un(x.user_id).localeCompare(un(y.user_id),'sk')||x.date_from.localeCompare(y.date_from));
+  const rng=a=>a.date_from===a.date_to?dmy2(a.date_from):dmy2(a.date_from)+' – '+dmy2(a.date_to);
+  const dmy2=ds=>`${+ds.slice(8,10)}.${+ds.slice(5,7)}.${ds.slice(0,4)}`;
+  const kind=a=>(KINDS[a.kind]||a.kind)+(a.part==='half'?' (pol dňa)':'')+(a.kind==='LEK'&&a.who==='family'?' – rodinný príslušník':'');
+  let h=`<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;font-size:11px;color:#111}h1{font-size:20px;margin:0 0 4px}h2{font-size:14px;margin:18px 0 6px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:4px 6px;text-align:left}th{background:#eee}.r{text-align:right}.pg{page-break-before:always}.box{border:2px solid #1a8fc4;padding:12px;margin-top:14px}.box h1{text-align:center;letter-spacing:6px;color:#1a8fc4}.l{margin:10px 0}.sig td{height:34px}small{color:#555}</style></head><body>`;
+  h+=`<h1>Neprítomnosť zamestnancov</h1><div>${e(c.name)} · ${ttl}</div><small>Podklad k uzavretému mesiacu. Vytvorené ${new Date().toLocaleString('sk-SK')}.</small>`;
+  h+=`<h2>Prehľad</h2>`;
+  if(!list.length)h+='<p>V mesiaci nie je žiadna neprítomnosť.</p>';
+  else{h+=`<table><tr><th>Zamestnanec</th><th>Druh</th><th>Od – do</th><th class="r">Dní v mesiaci</th><th>Stav</th><th>Doklad</th></tr>`;
+    const tot={};
+    for(const a of list){const n=absMonthDays(a,ym);tot[a.user_id]=tot[a.user_id]||{};tot[a.user_id][a.kind]=(tot[a.user_id][a.kind]||0)+n;
+      h+=`<tr><td>${e(un(a.user_id))}</td><td>${e(kind(a))}</td><td>${rng(a)}</td><td class="r">${fd(n)}</td><td>${ABS_ST[a.status]||e(a.status)}</td><td>${DOCK.indexOf(a.kind)<0?'':(a.doc_name?'priepustka je':'chýba')}</td></tr>`}
+    h+=`</table><h2>Súčty podľa zamestnanca</h2><table><tr><th>Zamestnanec</th><th>Druh</th><th class="r">Pracovných dní</th></tr>`;
+    for(const uid of Object.keys(tot))for(const k of Object.keys(tot[uid]))h+=`<tr><td>${e(un(uid))}</td><td>${e(KINDS[k]||k)}</td><td class="r">${fd(tot[uid][k])}</td></tr>`;
+    h+=`</table>`}
+  for(const a of list.filter(a=>a.kind==='DOV'&&a.status==='approved')){const u=S.users.find(x=>x.id===a.user_id)||{name:'?'},dni=wdRange(a.date_from,a.date_to)*absW(a);
+    h+=`<div class="pg"><div class="box"><h1>DOVOLENKA</h1>
+    <div class="l">Priezvisko a meno: <b>${e(u.name)}</b></div><div class="l">Firma: <b>${e(c.name)}</b></div>
+    <div class="l">Žiada o dovolenku na zotavenie za kalendárny rok <b>${a.date_from.slice(0,4)}</b></div>
+    <div class="l">od <b>${dmy2(a.date_from)}</b> do <b>${dmy2(a.date_to)}</b> vrátane, t. j. <b>${fd(dni)}</b> pracovných dní${a.part==='half'?' (pol dňa)':''}.</div>
+    ${a.note?`<div class="l">Poznámka: ${e(a.note)}</div>`:''}
+    <table class="sig" style="margin-top:16px"><tr><th style="width:34%"></th><th>Meno</th><th>Dátum a čas</th></tr>
+    <tr><td>Podal(a) žiadosť (elektronicky)</td><td>${e(a.by&&a.by!=='zamestnanec'?a.by:u.name)}</td><td>${e(String(a.at||''))}</td></tr>
+    <tr><td>Schválil(a)</td><td>${e(a.decided_by||'')}</td><td>${e(String(a.decided_at||''))}</td></tr></table>
+    <small>Žiadosť bola podaná a schválená elektronicky v evidencii dochádzky.</small></div></div>`}
+  for(const a of list.filter(a=>DOCK.indexOf(a.kind)>=0)){
+    h+=`<div class="pg"><h2>Priepustka – ${e(un(a.user_id))}</h2><table><tr><th>Druh</th><td>${e(kind(a))}</td><th>Termín</th><td>${rng(a)}</td></tr><tr><th>Zapísal(a)</th><td>${e(a.by||'')}</td><th>Stav</th><td>${ABS_ST[a.status]||e(a.status)}${a.decided_by?' – '+e(a.decided_by):''}</td></tr></table>`+(a.note?`<p>Poznámka: ${e(a.note)}</p>`:'')+(a.doc_name?`<p>{{IMG:${a.id}}}</p>`:'<p><i>Priepustka nebola nahraná.</i></p>')+`</div>`}
+  return h+'</body></html>'}
 document.addEventListener('change',ev=>{const k=ev.target;if(k&&(k.id==='ak'||k.id==='mk')){const l=k.closest('form').querySelector('.lekonly');if(l)l.style.display=k.value==='LEK'?'':'none'}});
 document.addEventListener('change',async ev=>{const t=ev.target;if(!t||!t.dataset||!t.dataset.absdoc||!t.files||!t.files[0])return;const f=t.files[0],id=t.dataset.absdoc;try{toast('Nahrávam priepustku…');const data=await fileToData(f);await call('absDoc',{id,data});await load();toast('Priepustka uložená')}catch(err){toast(err.message||'Nepodarilo sa nahrať',true)}});
 
@@ -220,7 +253,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v38';
+const APP_VER='test v39';
 const S={addreqs:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -404,7 +437,7 @@ function viewOverview(){
   for(const u of emps){const m=userMonth(u,S.ym);totNet+=m.tot.net;const open=allEntries().some(x=>x.user_id===u.id&&!x.out_at);
     rows+=`<tr class="link" data-act="open" data-id="${u.id}"><td>${e(u.name)}${open?' <span class="pill warn">v práci / chýba odchod</span>':''}</td><td class="r">${m.tot.days}</td><td class="r">${fmtH(m.tot.net)}</td><td class="r">${fmtDec(m.overtime)}</td><td class="r">${m.tot.meal_days}</td></tr>`}
   return `<div class="card">${monthNav()}<div class="row sp" style="margin-bottom:10px"><span>${locked?'<span class="pill warn">Mesiac je uzavretý</span>':'<span class="pill">Otvorený</span>'}</span>
-  ${locked?(S.isOwner?`<button class="btn sec sm" data-act="unlock">Odomknúť</button>`:''):`<button class="btn sm" data-act="lock">Uzavrieť mesiac</button>`}</div>
+  ${locked?`<span><button class="btn sec sm" data-act="absExport">Export neprítomnosti (PDF)</button>${S.isOwner?` <button class="btn sec sm" data-act="unlock">Odomknúť</button>`:''}</span>`:`<button class="btn sm" data-act="lock">Uzavrieť mesiac</button>`}</div>
   ${(()=>{const ow=ovWarn(c);return ow.length?`<div class="note" style="margin-bottom:10px"><b>Upozornenia</b><br>${ow.map(e).join('<br>')}</div>`:''})()}
   <div class="wrap"><table><thead><tr><th>Zamestnanec</th><th class="r">Dni</th><th class="r">Hodiny</th><th class="r">Nadčas</th><th class="r">Stravné</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="muted">Vo firme zatiaľ nie sú zamestnanci. Pridáte ich v záložke Ľudia.</td></tr>'}</tbody></table></div></div>`}
 
@@ -723,6 +756,7 @@ const handlers={
   delAbs(el){return mut('absDelete',{id:el.dataset.id})},
   corrOk(el){return mut('corrDecide',{id:el.dataset.id,ok:true},'Opravené')},
   corrNo(el){return mut('corrDecide',{id:el.dataset.id,ok:false})},
+  async absExport(el){const c=companyOf(S.companyId);if(!c)return;el.disabled=true;toast('Vytváram PDF…');try{const r=await call('absExport',{company_id:c.id,ym:S.ym,html:absExportHtml(c,S.ym)});toast('PDF uložené do Drive: '+r.name);window.open(r.url,'_blank')}catch(err){toast(err.message||'Export sa nepodaril',true)}finally{el.disabled=false}},
   lock(){return mut('lock',{company_id:S.companyId,ym:S.ym,locked:true},'Mesiac uzavretý')},
   unlock(){return mut('lock',{company_id:S.companyId,ym:S.ym,locked:false},'Mesiac odomknutý')},
   async resetPin(el){S.newPin=await call('pinReset',{id:el.dataset.id});await load()},
