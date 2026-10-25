@@ -259,7 +259,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v46';
+const APP_VER='test v47';
 const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -768,6 +768,10 @@ const handlers={
   corrNo(el){return mut('corrDecide',{id:el.dataset.id,ok:false})},
   async strFixAll(el){const c=companyOf(S.companyId);if(!c)return;const M=S.ym,M2=ymAdd(M,2),items=strRows(c,M).filter(r=>!r.A2).map(r=>({user_id:r.u.id,ym:M2,days:r.D2,meal_amt:r.Cm,sf_amt:r.Cs,kind:'mzdy'}));if(!items.length)return;el.disabled=true;try{await call('stravneSave',{company_id:c.id,items});await load();toast('Preddavky na '+strLab(M2)+' zafixované')}finally{el.disabled=false}},
   async strFixPev(el){const c=companyOf(S.companyId);if(!c)return;const M=S.ym,items=[];strRows(c,M).forEach(r=>{if(r.pst==='nast'){const fx=r.pv;items.push({user_id:r.u.id,ym:M,days:0,meal_amt:fx,sf_amt:0,kind:'pevny'})}else if(r.pst==='vratit')items.push({user_id:r.u.id,ym:M,days:0,meal_amt:-r.pv,sf_amt:0,kind:'vratka'})});if(!items.length)return;el.disabled=true;try{await call('stravneSave',{company_id:c.id,items});await load();toast('Zafixované')}finally{el.disabled=false}},
+  async cpDrive(el){const c=companyOf(S.companyId);if(!c||!S.cp.trips.length)return;el.disabled=true;let n=0;
+    try{for(const t of S.cp.trips){toast('Ukladám '+(n+1)+'/'+(S.cp.trips.length+1)+'…');await call('docSave',{company_id:c.id,kind:'cp',ym:S.ym,name:t.no+'_'+userName(t.user_id),html:cpPdfHtml(tripHTML(t))});n++}
+      await call('docSave',{company_id:c.id,kind:'cp',ym:S.ym,name:S.ym+'_mesačný súhrn CP',html:cpPdfHtml(sumHTML())});toast('Uložené do Drive: '+n+' CP a mesačný súhrn')}
+    catch(x){toast((x&&x.message)||'Uloženie zlyhalo',true)}finally{el.disabled=false}},
   async strUndoPev(el){const c=companyOf(S.companyId);if(!c)return;if(!confirm('Zrušiť zafixované zálohy a vratky za '+strLab(S.ym)+'?'))return;const ids=(S.stravne||[]).filter(x=>x.company_id===c.id&&x.ym===S.ym&&(x.kind==='pevny'||x.kind==='vratka')).map(x=>x.id);if(!ids.length)return;await call('stravneDel',{ids});await load();toast('Zafixovanie zrušené')},
   async strUndo(el){const c=companyOf(S.companyId);if(!c)return;if(!confirm('Zrušiť zafixované preddavky na '+strLab(ymAdd(S.ym,2))+'?'))return;const M2=ymAdd(S.ym,2),ids=(S.stravne||[]).filter(x=>x.company_id===c.id&&x.ym===M2&&x.kind==='mzdy').map(x=>x.id);if(!ids.length)return;await call('stravneDel',{ids});await load();toast('Zafixovanie zrušené')},
   strXml(el){const c=companyOf(S.companyId);if(!c)return;const M=S.ym,pk=strCfg(c).pk;const L=strLines(c,M,strRows(c,M)).filter(l=>r2(l.amt)!==0);
@@ -777,7 +781,8 @@ const handlers={
     const last=`${M}-${pad(daysInMonth(M))}`;
     const item=`  <dat:dataPackItem id="STR-${M}" version="2.0">\n    <int:intDoc version="2.0">\n      <int:intDocHeader>\n        <int:date>${last}</int:date>\n        <int:text>${xe('Stravne a cestovne nahrady - mzdy '+M.slice(5)+'/'+M.slice(0,4))}</int:text>\n        <int:accounting><typ:ids>${xe(pk[L[0].pk])}</typ:ids></int:accounting>\n      </int:intDocHeader>\n      <int:intDocDetail>\n${items}\n      </int:intDocDetail>\n    </int:intDoc>\n  </dat:dataPackItem>`;
     const r=wrapXml('DOCH-STR-'+M,c.ico||'','Stravne '+M,[item],false),u=wrapXml('DOCH-STR-'+M,c.ico||'','Stravne '+M,[item],true);
-    S.exportText=u;saveFile(fileName('interny-doklad-stravne',c,'xml'),toCp1250(r),'application/xml');render()},
+    S.exportText=u;saveFile(fileName('interny-doklad-stravne',c,'xml'),toCp1250(r),'application/xml');render();
+    call('docSave',{company_id:c.id,kind:'xml',ym:M,name:M+'_stravné_interný doklad',b64:b64Bytes(toCp1250(r))}).then(()=>toast('XML uložené aj do Drive')).catch(()=>toast('XML sa stiahlo, do Drive sa nepodarilo uložiť',true))},
   async strPdf(el){const c=companyOf(S.companyId);if(!c)return;el.disabled=true;toast('Vytváram PDF…');try{const r=await call('stravnePdf',{company_id:c.id,ym:S.ym,html:strPdfHtml(c,S.ym)});toast('PDF uložené do Drive: '+r.name);window.open(r.url,'_blank')}catch(err){toast(err.message||'Export sa nepodaril',true)}finally{el.disabled=false}},
   async absExport(el){const c=companyOf(S.companyId);if(!c)return;el.disabled=true;toast('Vytváram PDF…');try{const r=await call('absExport',{company_id:c.id,ym:S.ym,html:absExportHtml(c,S.ym)});toast('PDF uložené do Drive: '+r.name);window.open(r.url,'_blank')}catch(err){toast(err.message||'Export sa nepodaril',true)}finally{el.disabled=false}},
   lock(){return mut('lock',{company_id:S.companyId,ym:S.ym,locked:true},'Mesiac uzavretý')},
@@ -1010,7 +1015,7 @@ function viewCesty(){
   if(sub==='navrh')return cpSubBar()+monthNav()+viewAutoRes()+viewProp();
   if(sub==='dochadzka')return cpSubBar()+monthNav()+viewAtt();
   const tot=P.trips.reduce((a,t)=>a+(t.calc?t.calc.totalEur:0),0);
-  let h=cpSubBar()+monthNav()+`<div class="row" style="margin-bottom:12px"><button class="btn" data-act="cpNew">+ Nová cesta</button><button class="btn sec" data-act="cpPrintAll"${P.trips.length?'':' disabled'}>Tlač CP a zhrnutie</button><button class="btn sec" data-act="cpSum"${P.trips.length?'':' disabled'}>Zhrnutie</button></div>`;
+  let h=cpSubBar()+monthNav()+`<div class="row" style="margin-bottom:12px"><button class="btn" data-act="cpNew">+ Nová cesta</button><button class="btn sec" data-act="cpPrintAll"${P.trips.length?'':' disabled'}>Tlač CP a zhrnutie</button><button class="btn sec" data-act="cpSum"${P.trips.length?'':' disabled'}>Zhrnutie</button><button class="btn sec" data-act="cpDrive"${P.trips.length?'':' disabled'}>Uložiť do Drive</button></div>`;
   h+=viewCpAtt();
   h+=`<div class="card"><div class="row sp"><h3>Cesty ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)}</h3><b>${fm(tot)} €</b></div>`;
   if(!P.trips.length)h+='<p class="muted">V tomto mesiaci zatiaľ nie sú žiadne cesty.</p>';
@@ -1187,6 +1192,9 @@ function draftPayload(){syncDraft();const d=S.cp.draft;const P=d.pts;
   return{company_id:S.companyId,id:d.id||undefined,user_id:d.user_id,purpose:d.purpose,place:d.place,start_at:P[0].at,end_at:P[P.length-1].at,mode:d.mode,spz:d.spz,companions:d.companions,kurz:d.kurz?String(d.kurz).replace(',','.'):'',legs}}
 function tripLegsOk(p){}
 /* ---- tlač ---- */
+const CP_PDF_CSS='body{font-family:Arial,sans-serif;color:#000}.cpp{padding:14px;font-size:12px;page-break-after:always}.cpp h2{font-size:17px;display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px}.cpp h3{font-size:13px;margin:10px 0 4px}.cpp table{margin:6px 0;border-collapse:collapse;width:100%}.cpp th,.cpp td{font-size:11.5px;padding:3px 5px;border:1px solid #bbb;vertical-align:top;color:#000;text-align:left}.cpp table.kv td{width:50%}.cpp .r{text-align:right}.cpp .tot th{background:#eee}.cpp .sig{display:flex;justify-content:space-between;margin-top:34px}.cpp .sig span{border-top:1px solid #000;padding-top:3px;width:30%;text-align:center;font-size:11px}.cpp .small{font-size:11px}';
+function cpPdfHtml(inner){return '<html><head><meta charset="utf-8"><style>'+CP_PDF_CSS+'</style></head><body>'+inner+'</body></html>'}
+function b64Bytes(u8){let b='';for(let i=0;i<u8.length;i+=8192)b+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));return btoa(b)}
 function tripHTML(t){
   const c=companyOf(t.company_id)||{},cal=t.calc,u=S.users.find(x=>x.id===t.user_id)||{name:'?'},fz=t.kind==='Z',veh=S.cp.vehicles.find(v=>v.spz===t.spz)||{};
   const lastDay=t.end_at.slice(0,10);
