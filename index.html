@@ -106,7 +106,7 @@ textarea.xml{height:160px;font-family:ui-monospace,monospace;font-size:12px}
 .camx{position:absolute;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:auto}
 @media print{.noprint{display:none!important}body{background:#fff}.qrsheet{border:0}}
 
-.cpp{background:#fff;color:#000;padding:14px;margin:10px 0;border:1px solid var(--line);border-radius:6px;font-size:12px;page-break-after:always}
+.onbw{max-width:560px}.onbw .card h3{margin-bottom:8px}.yn{display:flex;gap:8px}.yn label{flex:1;margin:0;position:relative}.yn input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}.yn span{display:block;text-align:center;padding:10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}.yn input:checked+span{background:var(--signal);color:var(--signal-ink);font-weight:700;border-color:transparent}.chk{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:inherit;font-weight:400}.chk input{width:auto;margin-top:3px}.ph{border:1px dashed var(--line);border-radius:8px;padding:8px;margin:8px 0}.ph .phi{max-width:100%;max-height:140px;margin-top:6px;border-radius:6px}canvas.sig{width:100%;display:block;background:#fff;border:1px solid var(--line);border-radius:8px;touch-action:none;margin-top:4px}.cpp{background:#fff;color:#000;padding:14px;margin:10px 0;border:1px solid var(--line);border-radius:6px;font-size:12px;page-break-after:always}
 .cpp h2{font-size:17px;display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px}
 .cpp h3{font-size:13px;margin:10px 0 4px}.cpp table{margin:6px 0}.cpp th,.cpp td{font-size:11.5px;padding:3px 5px;border:1px solid #bbb;vertical-align:top;color:#000}
 .cpp table.kv td{width:50%}.cpp .r{text-align:right}.cpp .tot th{background:#eee}
@@ -256,10 +256,10 @@ const CP={'Á':0xC1,'Ä':0xC4,'Č':0xC8,'Ď':0xCF,'É':0xC9,'Í':0xCD,'Ĺ':0xC5,
 function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(c<128)o.push(c);else o.push(CP[ch]!==undefined?CP[ch]:0x3F)}return new Uint8Array(o)}
 
 /* ===================== stav a komunikácia so serverom ===================== */
-const BOOT={q:null};try{const qq=new URLSearchParams(location.search).get('q');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}}catch(_){}
+const BOOT={q:null,o:null};try{const sp=new URLSearchParams(location.search),qq=sp.get('q'),oo=sp.get('o');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}if(oo&&/^[0-9a-f]{24}$/.test(oo)){BOOT.o=oo;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v48';
+const APP_VER='test v49';
 const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -273,7 +273,7 @@ function call(action,args){
     .then(r=>{if(r&&r.ok)return r.data;const er=new Error((r&&r.error)||'Chyba servera');er.auth=/Prihláste|Relácia vypršala|Účet nie je/.test(er.message);throw er})}
 async function load(){
   try{const d=await call('state',{ym:S.ym});
-    Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],ready:true});try{localStorage.setItem('dstate',JSON.stringify({ym:S.ym,d:d}))}catch(_){}
+    Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],onbL:d.onb||[],ready:true});try{localStorage.setItem('dstate',JSON.stringify({ym:S.ym,d:d}))}catch(_){}
     if(!S.companyId||!S.companies.some(c=>c.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;
     schedule()}
   catch(x){if(x.auth){dropSession();render()}else{S.ready=true;toast(x.message,true)}}}
@@ -304,7 +304,8 @@ document.addEventListener('focusout',()=>{if(pendingAfterBlur)setTimeout(()=>{if
 
 function render(){
   pendingAfterBlur=false;let html;
-  if(S.qrView)html=viewQrSheet();
+  if(S.onb){if(S.onb.phase==='form'&&S.onb.drawn&&$app.querySelector('#onbf'))return;html=viewOnb()}
+  else if(S.qrView)html=viewQrSheet();
   else if(!S.ready)html='<p class="muted">Načítavam…</p>';
   else if(!role())html=viewLogin();
   else if(S.cpPrint)html=viewCpPrint();
@@ -355,7 +356,7 @@ function viewShell(){
   if(S.detailId&&S.tab==='prehlad')return h+viewDetail();
   return h+({prehlad:viewOverview,ziadosti:viewRequests,ludia:viewPeople,export:viewExport,cesty:viewCesty,stravne:viewStravne,moja:viewEmployee,firma:viewCompanies}[S.tab]||viewOverview)();
 }
-function pendingCount(){const ids=new Set(myCompanies().map(c=>c.id));return S.absences.filter(a=>a.status==='pending'&&ids.has(a.company_id)).length+S.corrections.filter(c=>c.status==='pending'&&ids.has(c.company_id)).length+(S.addreqs||[]).filter(a=>a.status==='pending'&&ids.has(a.company_id)).length}
+function pendingCount(){const ids=new Set(myCompanies().map(c=>c.id));return S.absences.filter(a=>a.status==='pending'&&ids.has(a.company_id)).length+S.corrections.filter(c=>c.status==='pending'&&ids.has(c.company_id)).length+(S.addreqs||[]).filter(a=>a.status==='pending'&&ids.has(a.company_id)).length+(S.role==='admin'?(S.onbL||[]).filter(o=>o.status==='submitted'&&ids.has(o.company_id)).length:0)}
 
 function monthNav(){return `<div class="row sp" style="margin-bottom:12px"><button class="btn sec sm" data-act="month" data-d="-1" aria-label="Predchádzajúci mesiac">‹</button><b>${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)}</b><button class="btn sec sm" data-act="month" data-d="1" aria-label="Nasledujúci mesiac">›</button></div>`}
 
@@ -556,6 +557,7 @@ function viewPeople(){
   if(S.newPin)h+=`<div class="card hi"><b>${e(S.newPin.name)}</b><div class="muted small">prihlasovacie meno: <b>${e(S.newPin.username)}</b></div><div class="pin">${e(S.newPin.pin)}</div><p class="muted small" style="margin:4px 0 8px">PIN sa zobrazí len teraz. Odovzdajte ho zamestnancovi.</p><button class="btn sec sm" data-act="hidePin">Skryť</button></div>`;
   if(S.users.some(u=>u.fixed_from&&u.company_id===S.companyId))h+=`<div class="card"><b>Pevná pracovná doba</b><p class="muted small" style="margin:4px 0 8px">Doplní dochádzku za ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)} zamestnancom s pevnou dobou (pracovné dni po dnes, bez sviatkov, neprítomností a dní s existujúcim záznamom).</p><button class="btn" data-act="fillFixed">Doplniť pevnú dobu za mesiac</button></div>`;
   const list=S.users.filter(u=>u.role!=='admin'&&(u.company_id===S.companyId||(u.companies||[]).includes(S.companyId)));
+  h+=onbCard();
   h+=`<div class="card"><div class="wrap"><table><thead><tr><th>Meno</th><th>Meno na prihlásenie</th><th>Rola</th><th></th></tr></thead><tbody>${list.sort((a,b)=>a.name.localeCompare(b.name,'sk')).map(u=>`<tr${u.active===false?' style="opacity:.5"':''}><td>${e(u.name)}${u.os_cislo?`<div class="muted small">os. č. ${e(u.os_cislo)}</div>`:''}${u.address?`<div class="muted small">${e(u.address)}</div>`:''}${u.fixed_from?`<div class="muted small">pevná doba ${e(u.fixed_from)}–${e(u.fixed_to)}</div>`:''}${u.no_meal?`<div class="muted small">bez nároku na stravné</div>`:''}${u.spol?`<div class="muted small">spoločník (konateľ)</div>`:''}${u.cp_role?`<div class="muted small">v jazdách: ${u.cp_role==='vodic'?'vodič':'spolujazdec'}</div>`:''}${u.emp_from||u.emp_to?`<div class="muted small">pracovný pomer ${u.emp_from?'od '+dmyFull(u.emp_from):''}${u.emp_to?' do '+dmyFull(u.emp_to):''}</div>`:''}<div class="muted small">${u.role==='manager'?(u.companies||[]).map(id=>(companyOf(id)||{name:'?'}).name).join(', '):(companyOf(u.company_id)||{name:'?'}).name}</div></td><td>${e(u.username)}</td><td>${u.role==='manager'?'správca':'zamestnanec'}</td><td class="r"><button class="btn sec sm" data-act="resetPin" data-id="${u.id}">Nový PIN</button> <button class="btn sec sm" data-act="editAddr" data-id="${u.id}">Bydlisko</button> ${u.company_id?`<button class="btn sec sm" data-act="editFixed" data-id="${u.id}">Pevná doba</button> <button class="btn sec sm" data-act="editEmp" data-id="${u.id}">Pracovný pomer</button> <button class="btn sec sm" data-act="cpRoleCycle" data-id="${u.id}" title="Vodič sa ponúka v jazdách ako vodič aj spolujazdec, spolujazdec len ako spolujazdec">Rola v jazdách: ${u.cp_role==='vodic'?'vodič':u.cp_role==='spolujazdec'?'spolujazdec':'—'}</button> <button class="btn sec sm" data-act="toggleNoMeal" data-id="${u.id}">${u.no_meal?'Stravné áno':'Bez stravného'}</button> <button class="btn sec sm" data-act="toggleSpol" data-id="${u.id}" title="Konateľ / spoločník – záloha na stravné sa účtuje cez 366">${u.spol?'Nie je spoločník':'Spoločník'}</button>`:''}${r==='admin'&&u.company_id&&u.role!=='admin'?` <button class="btn sec sm" data-act="toggleMgr" data-id="${u.id}">${u.role==='manager'?'Len zamestnanec':'Aj správca'}</button>`:''}${r==='admin'&&u.role==='manager'&&!u.company_id?` <button class="btn sec sm" data-act="alsoEmp" data-id="${u.id}">Aj zamestnanec</button>`:''} <button class="btn sec sm" data-act="toggleActive" data-id="${u.id}">${u.active===false?'Aktivovať':'Vypnúť'}</button></td></tr>`).join('')||'<tr><td colspan="4" class="muted">Zatiaľ nikto.</td></tr>'}</tbody></table></div></div>`;
   if(!cs.length)return h;
   h+=`<form class="card" data-form="addUser"><h3 style="margin-bottom:10px">Pridať človeka</h3><div class="row"><div class="f"><label for="un">Meno a priezvisko</label><input id="un" name="name" required></div><div class="f"><label for="uu">Prihlasovacie meno</label><input id="uu" name="username" placeholder="doplní sa z mena"></div></div>
@@ -774,6 +776,15 @@ const handlers={
       await put(S.ym+'_mesačný súhrn CP',cpPdfHtml(sumHTML()));toast('Uložené '+(pc?'do priečinka firmy v počítači':'do Drive')+': '+n+' CP a mesačný súhrn')}
     catch(x){toast((x&&x.message)||'Uloženie zlyhalo',true)}finally{el.disabled=false}},
   async fsPick(el){try{const k=el.dataset.k,n=await FS.pick(k);toast('Priečinok nastavený: '+n);render()}catch(x){if(x&&x.name!=='AbortError')toast('Priečinok sa nepodarilo nastaviť',true)}},
+  onbToggle(){S.onbNew=!S.onbNew;render()},
+  onbLinkClose(){S.onbLink=null;render()},
+  onbRevClose(){S.onbRev=null;render()},
+  onbReview(el){S.onbRev=el.dataset.id;render();window.scrollTo(0,0)},
+  async onbCopy(el){const u=onbLinkOf(el.dataset.id);try{await navigator.clipboard.writeText(u);toast('Odkaz skopírovaný')}catch(_){prompt('Skopírujte odkaz:',u)}},
+  async onbShare(el){const l=(S.onbL||[]).find(o=>o.id===el.dataset.id),u=onbLinkOf(el.dataset.id);if(navigator.share){try{await navigator.share({title:'Osobný dotazník',text:'Dobrý deň, vyplňte prosím osobný dotazník pred nástupom (platí 7 dní): ',url:u});return}catch(x){if(x&&x.name==='AbortError')return}}try{await navigator.clipboard.writeText(u);toast('Odkaz skopírovaný')}catch(_){prompt('Skopírujte odkaz:',u)}},
+  async onbCancel(el){if(!confirm('Zrušiť pozvánku? Odkaz prestane fungovať.'))return;await mut('onbCancel',{id:el.dataset.id},'Pozvánka zrušená')},
+  onbSigClear(){if(S.onb&&S.onb.clear)S.onb.clear()},
+  onbSend(){onbSendForm()},
   async strUndoPev(el){const c=companyOf(S.companyId);if(!c)return;if(!confirm('Zrušiť zafixované zálohy a vratky za '+strLab(S.ym)+'?'))return;const ids=(S.stravne||[]).filter(x=>x.company_id===c.id&&x.ym===S.ym&&(x.kind==='pevny'||x.kind==='vratka')).map(x=>x.id);if(!ids.length)return;await call('stravneDel',{ids});await load();toast('Zafixovanie zrušené')},
   async strUndo(el){const c=companyOf(S.companyId);if(!c)return;if(!confirm('Zrušiť zafixované preddavky na '+strLab(ymAdd(S.ym,2))+'?'))return;const M2=ymAdd(S.ym,2),ids=(S.stravne||[]).filter(x=>x.company_id===c.id&&x.ym===M2&&x.kind==='mzdy').map(x=>x.id);if(!ids.length)return;await call('stravneDel',{ids});await load();toast('Zafixovanie zrušené')},
   strXml(el){const c=companyOf(S.companyId);if(!c)return;const M=S.ym,pk=strCfg(c).pk;const L=strLines(c,M,strRows(c,M)).filter(l=>r2(l.amt)!==0);
@@ -817,6 +828,9 @@ const handlers={
 };
 
 const forms={
+  onbInvite:async(f)=>{const r=await call('onbCreate',{company_id:S.companyId,label:f.get('label'),profile:f.get('full')?'full':'basic'});S.onbNew=false;await load();S.onbLink=r.id;render()},
+  onbConfirm:async(f,form)=>{const r=await call('onbConfirm',{id:form.dataset.id,os:f.get('os'),name:f.get('name'),email:f.get('email'),phone:f.get('phone'),address:f.get('address'),sizes:f.get('sizes'),weekly:String(f.get('weekly')||'').replace(',','.')});S.onbRev=null;S.newPin=r;await load();toast('Zamestnanec vytvorený')},
+
   empAddEntry:async f=>{const op=openEntry();if(!f.get('in')){if(op&&op.day===f.get('day')&&f.get('out')){await mut('corrAdd',{entry_id:op.id,time:f.get('out')},'Odchod odoslaný na schválenie');S.emp=S.emp||{};S.emp.add=false;return}throw new Error('Vyplňte príchod.')}await call('entryReq',{day:f.get('day'),in:f.get('in'),out:f.get('out'),note:f.get('note')});S.emp=S.emp||{};S.emp.add=false;if(navDepth>0)navBack(()=>{});await load();toast('Doplnené, čaká na schválenie správcom')},
   brk:async f=>{const r=await call('breakSave',{day:f.get('day'),from:f.get('from'),to:f.get('to')});S.emp=S.emp||{};S.emp.brk=false;if(navDepth>0)navBack(()=>{});await load();toast(r.raised?`Prestávka uložená, započítaných ${r.brk} min (zákonné minimum)`:`Prestávka uložená (${r.brk} min)`)},
   cpCounter:(f)=>call('cpCounter',{company_id:S.companyId,nZ:f.get('nZ'),nT:f.get('nT')}).then(()=>{S.cp.loaded='';toast('Uložené');schedule()}),
@@ -1242,12 +1256,95 @@ function viewCpPrint(){
   return `<div class="row sp noprint" style="margin-bottom:8px"><button class="btn sec sm" data-act="cpPrintClose">‹ Späť</button><button class="btn sm" data-act="printQr">Tlačiť / uložiť PDF</button></div><div class="cpwrap">${ids==='all'||ids==='sum'?sumHTML():''}${ts.map(tripHTML).join('')}</div>`}
 
 $app.addEventListener('input',()=>{if(S.cp.draft)syncDraft()});$app.addEventListener('change',ev=>{const d=S.cp.draft;if(!d)return;syncDraft();if(ev.target&&ev.target.dataset&&ev.target.dataset.cp==='compAdd'){const v=ev.target.value;if(v){const cur=String(d.companions||'').split(',').map(x=>x.trim()).filter(Boolean);if(!cur.includes(v))cur.push(v);d.companions=cur.join(', ')}render();return}if(ev.target&&ev.target.dataset&&ev.target.dataset.cp==='ttype'){if(d.ttype==='Z'){if(!d.pts.some(p=>p.kind==='cross')){insertBeforeEnd(d,{kind:'cross',code:firstForeign(),km:0});insertBeforeEnd(d,{kind:'cross',code:firstForeign(),km:0})}}else d.pts=d.pts.filter(p=>p.kind!=='cross');render()}});
+/* ===================== dotazník nového zamestnanca (verejný odkaz) ===================== */
+function onbStart(){S.onb={phase:'load',k:BOOT.o,files:{},sig:false};render();
+  call('onbInfo',{k:BOOT.o}).then(i=>{S.onb.info=i;S.onb.phase='form';S.onb.drawn=false;render();onbDraw()}).catch(x=>{S.onb.phase='err';S.onb.msg=(x&&x.message)||'Odkaz nie je platný.';render()})}
+const ONB_TR=['S','M','L','XL','XXL','3XL'],ONB_MO=[48,50,52,54,56,58,60,62,64],ONB_SH=Array.from({length:16},(_,i)=>35+i);
+function viewOnb(){const o=S.onb,hd=`<div class="brand" style="margin-bottom:14px"><i></i>Osobný dotazník</div>`;
+  if(o.phase==='load')return `<div class="login">${hd}<p class="muted">Načítavam…</p></div>`;
+  if(o.phase==='err')return `<div class="login">${hd}<div class="card"><h2 style="margin-bottom:8px">Odkaz nie je platný</h2><p>${e(o.msg)}</p></div></div>`;
+  if(o.phase==='done')return `<div class="login">${hd}<div class="card hi"><h2 style="margin-bottom:8px">Ďakujeme, dotazník bol odoslaný</h2><p>Údaje a prílohy sme prijali. Zamestnávateľ vás bude kontaktovať. Túto stránku môžete zavrieť.</p></div></div>`;
+  const I=o.info,full=I.profile==='full';
+  const f=(n,l,t,x)=>`<div class="f"><label for="o_${n}">${l}</label><input id="o_${n}" name="${n}" type="${t||'text'}" ${x||''}></div>`;
+  const yn=(n,l,def,sw)=>`<div class="f"${sw?` data-show="${sw}"`:''}><label>${l}</label><div class="yn"><label><input type="radio" name="${n}" value="ano"${def==='ano'?' checked':''}><span>ÁNO</span></label><label><input type="radio" name="${n}" value="nie"${def==='nie'?' checked':''}><span>NIE</span></label></div></div>`;
+  const sel=(n,l,opts,x)=>`<div class="f"><label for="o_${n}">${l}</label><select id="o_${n}" name="${n}" ${x||''}><option value="">– vyberte –</option>${opts.map(v=>`<option>${v}</option>`).join('')}</select></div>`;
+  const ph=(k,t,req)=>`<div class="ph" data-ph="${k}"><div class="row sp"><b>${t}${req?' *':''}</b><span class="phs muted small">chýba</span></div><img alt="" class="phi" style="display:none"><div class="row" style="margin-top:6px"><label class="btn sec sm" style="cursor:pointer">📷 Odfotiť<input type="file" accept="image/*" capture="environment" data-onbph="${k}" style="display:none"></label><label class="btn sec sm" style="cursor:pointer">🖼 Z galérie<input type="file" accept="image/*" data-onbph="${k}" style="display:none"></label></div></div>`;
+  const kid=i=>`<div data-show="kidsCount>${i}" class="kidrow"><div class="f"><label>${i+1}. dieťa – meno a priezvisko</label><input name="kn${i}"></div><div class="f"><label>${i+1}. dieťa – rodné číslo</label><input name="kr${i}" inputmode="numeric"></div></div>`;
+  return `<div class="login onbw">${hd}<form id="onbf" autocomplete="on" novalidate>
+  <div class="card"><h2 style="margin-bottom:4px">${e(I.company)}</h2><p class="muted small" style="margin:0">${I.ico?'IČO: '+e(I.ico)+' · ':''}Vyplňte dotazník, priložte fotky dokladov a podpíšte. Políčka označené * sú povinné.</p></div>
+  <div class="card"><h3>Osobné údaje</h3>${f('name','Meno, priezvisko, titul *','text','autocomplete="name"')}${f('maiden','Rodné priezvisko')}${sel('marital','Rodinný stav *',['slobodný/á','ženatý/vydatá','rozvedený/á','vdovec/vdova'])}${f('rc','Rodné číslo *','text','inputmode="numeric" placeholder="bez lomky alebo s lomkou"')}${f('dob','Dátum narodenia *','date')}${f('pob','Miesto narodenia')}${f('nat','Národnosť / štátna príslušnosť','text','value="slovenská"')}${f('address','Trvalé bydlisko (ulica, mesto, PSČ) *','text','autocomplete="street-address"')}${f('address2','Prechodné bydlisko (ak sa líši)')}${f('email','E-mail *','email','autocomplete="email"')}${f('phone','Telefón *','tel','autocomplete="tel"')}<p class="muted small" style="margin:6px 0 0">Uvedením e-mailu súhlasíte so zasielaním výplatnej pásky elektronicky.</p></div>
+  <div class="card"><h3>Zdravotné údaje</h3>${sel('zp','Zdravotná poisťovňa *',['VšZP (24)','Dôvera (25)','Union (27)','Iná'])}${yn('pensioner','Dôchodca','nie')}${f('pensionKind','Druh dôchodku (starobný, invalidný, predčasný, výsluhový)')}${yn('disabled','Zdravotné postihnutie','nie')}${f('disabledKind','ZŤP / invalidita (do 40 % / nad 70 %)')}</div>
+  <div class="card"><h3>Ostatné údaje</h3>${yn('payBank','Mzda na účet','ano')}${f('iban','Číslo účtu (IBAN) *','text','autocomplete="off" placeholder="SK00 0000 0000 0000 0000 0000"')}${f('swift','SWIFT (len zahraničný účet)')}${yn('taxDecl','Vyhlásenie k dani (nezdaniteľná čiastka na daňovníka)','ano')}${yn('pillar2','Sporiteľ II. pilier','nie')}${yn('pillar2upsvar','Evidovaný na ÚPSVaR','nie','pillar2=ano')}${yn('pillar3','Sporiteľ III. pilier (DDS)','nie')}${f('pillar3name','Názov DDS')}${yn('deductions','Zrážky zo mzdy','nie')}${f('deductionsKind','Druh zrážky (výživné, pôžičky, exekúcie, iné)')}</div>
+  <div class="card"><h3>Rodinní príslušníci</h3><p class="muted small" style="margin:0 0 6px">Vyplňte aj keď neuplatňujete daňový bonus (potrebné na výpočet prípadných zrážok).</p>${f('spouse','Manžel / manželka – meno, priezvisko (rodné)')}${f('spouseDob','Dátum narodenia manžela/ky','date')}${f('spouseEmployer','Zamestnávateľ manžela/ky')}<div class="f"><label for="o_kidsCount">Počet nezaopatrených detí</label><select id="o_kidsCount" name="kidsCount">${[0,1,2,3,4,5,6].map(n=>`<option>${n}</option>`).join('')}</select></div><p class="muted small kidhint" data-show="kidsCount>0" style="margin:0 0 6px">Údaje detí vyplňte len pri uplatňovaní daňového bonusu.</p>${[0,1,2,3,4,5].map(kid).join('')}</div>
+  <div class="card"><h3>Vzdelanie a ďalšie</h3>${f('school','Názov školy / odbor')}${f('languages','Znalosť cudzích jazykov')}${yn('driving','Vodičský preukaz','nie')}${f('drivingGroups','Skupiny (napr. B, C)')}</div>
+  <div class="card"><h3>Veľkosť oblečenia</h3>${full?sel('monterky','Montérky (48–64) *',ONB_MO):''}${sel('tricko','Tričko (S–XXL) *',ONB_TR)}${full?sel('bunda','Bunda (S–XXL) *',ONB_TR):''}${sel('topanky','Veľkosť topánok (EU) *',ONB_SH)}${full?f('vyska','Výška (cm)','number','inputmode="numeric"')+f('vaha','Váha (kg)','number','inputmode="numeric"')+f('pas','Obvod pása (cm)','number','inputmode="numeric"'):''}</div>
+  <div class="card"><h3>Fotky dokladov</h3><p class="muted small" style="margin:0 0 8px">Odfoťte doklady tak, aby boli čitateľné. Sú uložené len u zamestnávateľa.</p>${ph('zp1','Kartička poistenca – predná strana',1)}${ph('zp2','Kartička poistenca – zadná strana',1)}${ph('op1','Občiansky preukaz – predná strana',1)}${ph('op2','Občiansky preukaz – zadná strana',1)}<div data-show="kidsCount>0"><p class="muted small" style="margin:8px 0 4px">Rodné listy detí (pri daňovom bonuse):</p>${[0,1,2,3,4,5].map(i=>`<div data-show="kidsCount>${i}">${ph('rl'+(i+1),(i+1)+'. dieťa – rodný list')}</div>`).join('')}</div></div>
+  <div class="card"><h3>Súhlas a podpis</h3><p class="small" style="margin:0 0 8px">Týmto dobrovoľne udeľujem zamestnávateľovi a ním poverených spoločností svoj súhlas so správou, spracovávaním a uchovaním osobných údajov v zmysle zákona č. 18/2018 Z. z. a Nariadenia (EÚ) 2016/679 (GDPR) na účely personálnej agendy, mzdového účtovníctva a uzatvárania zmlúv po dobu nevyhnutnú k ich spracúvaniu. Prehlasujem, že údaje sú pravdivé a aktuálne a zmeny okamžite oznámim zamestnávateľovi.</p>
+  <label class="chk"><input type="checkbox" name="consent" value="1"> Súhlasím a potvrdzujem správnosť údajov *</label>
+  <div style="margin-top:10px"><b>Podpis *</b> <button type="button" class="btn sec sm" data-act="onbSigClear" style="float:right">Zmazať</button></div><canvas id="onbsig" class="sig"></canvas><p class="muted small" style="margin:2px 0 0">Podpíšte sa prstom do rámčeka. Dátum: ${new Date().toLocaleDateString('sk-SK')}</p></div>
+  <p class="err" id="onbErr" style="display:none;margin:8px 0"></p>
+  <div style="margin:10px 0 40px"><button type="button" class="btn big" data-act="onbSend" id="onbBtn">Odoslať dotazník</button></div></form></div>`}
+function onbShow(){const F=document.getElementById('onbf');if(!F)return;const v=n=>{const r=F.querySelector(`input[name="${n}"]:checked`);return r?r.value:(F.elements[n]?F.elements[n].value:'')};
+  F.querySelectorAll('[data-show]').forEach(el=>{const x=el.dataset.show;let on=true;const m=/^(\w+)([>=])(\w+)$/.exec(x);if(m){const a=v(m[1]);on=m[2]==='>'?(+a>+m[3]):a===m[3]}el.style.display=on?'':'none'});
+  // text polia, ktoré patria k ÁNO/NIE
+  const dep=[['pensionKind','pensioner'],['disabledKind','disabled'],['pillar3name','pillar3'],['deductionsKind','deductions'],['drivingGroups','driving']];
+  dep.forEach(([k,r])=>{const el=F.elements[k];if(!el)return;const box=el.closest('.f');if(box)box.style.display=v(r)==='ano'?'':'none'});}
+function rcDob(rc){const d=String(rc).replace(/\D/g,'');if(d.length<9||d.length>10)return '';let yy=+d.slice(0,2),mm=+d.slice(2,4),dd=+d.slice(4,6);if(mm>50)mm-=50;if(mm>20)mm-=20;yy+=d.length===9?1900:(yy<54?2000:1900);if(mm<1||mm>12||dd<1||dd>31)return '';return `${yy}-${pad(mm)}-${pad(dd)}`}
+function onbDraw(){S.onb.drawn=true;onbShow();const cv=document.getElementById('onbsig');if(!cv)return;const dpr=window.devicePixelRatio||1,w=cv.clientWidth||320,h=170;cv.width=w*dpr;cv.height=h*dpr;cv.style.height=h+'px';const g=cv.getContext('2d');g.scale(dpr,dpr);g.lineWidth=2.4;g.lineCap='round';g.strokeStyle='#111';g.fillStyle='#fff';g.fillRect(0,0,w,h);
+  let dn=false,lx=0,ly=0;const pt=ev=>{const r=cv.getBoundingClientRect();return[ev.clientX-r.left,ev.clientY-r.top]};
+  cv.addEventListener('pointerdown',ev=>{dn=true;[lx,ly]=pt(ev);cv.setPointerCapture(ev.pointerId);g.beginPath();g.arc(lx,ly,1.2,0,6.3);g.stroke();S.onb.sig=true;ev.preventDefault()});
+  cv.addEventListener('pointermove',ev=>{if(!dn)return;const[x,y]=pt(ev);g.beginPath();g.moveTo(lx,ly);g.lineTo(x,y);g.stroke();lx=x;ly=y;ev.preventDefault()});
+  const up=()=>{dn=false};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+  S.onb.clear=()=>{g.fillStyle='#fff';g.fillRect(0,0,w,h);S.onb.sig=false}}
+document.addEventListener('change',async ev=>{const t=ev.target;if(!S.onb||!t)return;
+  if(t.closest&&t.closest('#onbf')&&(t.type==='radio'||t.tagName==='SELECT'))onbShow();
+  if(t.dataset&&t.dataset.onbph){const k=t.dataset.onbph,f=t.files&&t.files[0];if(!f)return;const box=document.querySelector(`[data-ph="${k}"]`),st=box.querySelector('.phs'),im=box.querySelector('.phi');
+    try{st.textContent='spracúvam…';const d=await fileToData(f);S.onb.files[k]=d;im.src=d;im.style.display='block';st.textContent='✓ nahrané';st.className='phs ok small'}catch(x){st.textContent=(x&&x.message)||'Fotku sa nepodarilo načítať'}t.value=''}});
+document.addEventListener('input',ev=>{const t=ev.target;if(S.onb&&t&&t.name==='rc'){const F=document.getElementById('onbf'),d=F&&F.elements.dob;if(d&&!d.value){const v=rcDob(t.value);if(v)d.value=v}}});
+const ONB_PH={zp1:'Kartička poistenca – predná strana',zp2:'Kartička poistenca – zadná strana',op1:'Občiansky preukaz – predná strana',op2:'Občiansky preukaz – zadná strana'};
+const dmyIso=v=>v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v.slice(8)+'.'+v.slice(5,7)+'.'+v.slice(0,4):(v||'');
+async function onbSendForm(){const o=S.onb,F=document.getElementById('onbf'),er=document.getElementById('onbErr'),bt=document.getElementById('onbBtn');
+  const fail=m=>{er.textContent=m;er.style.display='block';er.scrollIntoView({block:'center',behavior:'smooth'})};er.style.display='none';
+  const fd=new FormData(F),d={};for(const[k,v]of fd.entries())if(typeof v==='string')d[k]=v.trim();
+  const need=[['name','meno a priezvisko'],['marital','rodinný stav'],['rc','rodné číslo'],['dob','dátum narodenia'],['address','trvalé bydlisko'],['email','e-mail'],['phone','telefón'],['zp','zdravotnú poisťovňu'],['tricko','veľkosť trička'],['topanky','veľkosť topánok']];if(o.info.profile==='full')need.push(['monterky','veľkosť montérok'],['bunda','veľkosť bundy']);
+  for(const[k,l]of need)if(!d[k])return fail('Vyplňte '+l+'.');
+  if(!/^\S+@\S+\.\S+$/.test(d.email))return fail('Skontrolujte e-mail.');
+  if(d.payBank==='ano'&&!d.iban)return fail('Vyplňte číslo účtu (IBAN) alebo zvoľte „Mzda na účet: NIE“.');
+  for(const k of Object.keys(ONB_PH))if(!o.files[k])return fail('Pridajte fotku: '+ONB_PH[k]+'.');
+  if(!d.consent)return fail('Potvrďte súhlas so spracovaním údajov.');
+  if(!o.sig)return fail('Podpíšte sa do rámčeka.');
+  const kids=[];for(let i=0;i<+d.kidsCount;i++)if(d['kn'+i]||d['kr'+i])kids.push({name:d['kn'+i]||'',rc:d['kr'+i]||''});
+  d.kids=kids;d.dob=dmyIso(d.dob);d.spouseDob=dmyIso(d.spouseDob);d.consent=true;
+  for(const k of Object.keys(d))if(/^k[nr]\d$/.test(k))delete d[k];
+  const names={zp1:'Kartička poistenca 1',zp2:'Kartička poistenca 2',op1:'Občiansky preukaz 1',op2:'Občiansky preukaz 2'};
+  const files=Object.keys(o.files).filter(k=>names[k]||(/^rl\d$/.test(k)&&+k.slice(2)<=kids.length)).map(k=>({key:k,name:names[k]||('Rodný list dieťaťa '+k.slice(2)),data:o.files[k]}));
+  bt.disabled=true;bt.textContent='Odosielam…';
+  try{await call('onbSubmit',{k:o.k,d,files,sig:document.getElementById('onbsig').toDataURL('image/png')});o.phase='done';o.drawn=false;render();window.scrollTo(0,0)}
+  catch(x){bt.disabled=false;bt.textContent='Odoslať dotazník';fail((x&&x.message)||'Odoslanie zlyhalo, skúste znova.')}}
+
+const onbLinkOf=id=>location.origin+location.pathname+'?o='+id;
+function onbCard(){const cs=myCompanies(),c=companyOf(S.companyId);if(!c)return '';
+  const L=(S.onbL||[]).filter(x=>x.company_id===S.companyId).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))),now=new Date().toISOString().slice(0,16).replace('T',' ');
+  const st=x=>x.status==='new'?(x.expires_at<now?['bad','vypršalo']:['warn','čaká na vyplnenie']):x.status==='submitted'?['warn','odoslané, čaká na potvrdenie']:x.status==='confirmed'?['ok','potvrdené']:['bad','zrušené'];
+  const rows=L.filter(x=>x.status!=='confirmed'&&x.status!=='cancelled'||L.indexOf(x)<6).slice(0,12).map(x=>{const p=st(x),act=[];
+    if(x.status==='new'&&x.expires_at>=now)act.push(`<button class="btn sec sm" data-act="onbCopy" data-id="${x.id}">Kopírovať odkaz</button><button class="btn sec sm" data-act="onbShare" data-id="${x.id}">Zdieľať</button><button class="btn sec sm" data-act="onbCancel" data-id="${x.id}">Zrušiť</button>`);
+    if(x.status==='submitted'&&S.role==='admin')act.push(`<button class="btn sm" data-act="onbReview" data-id="${x.id}">Skontrolovať a potvrdiť</button>`);
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="row sp"><span><b>${e(x.name||x.label||'bez mena')}</b><div class="muted small">${x.status==='new'?'platí do '+dmyFull(String(x.expires_at).slice(0,10)):x.submitted_at?'odoslané '+dmyFull(String(x.submitted_at).slice(0,10)):''}${x.profile==='full'?' · rozšírené veľkosti':''}</div></span><span class="pill ${p[0]}">${p[1]}</span></div>${act.length?`<div class="row" style="margin-top:6px;flex-wrap:wrap">${act.join('')}</div>`:''}</div>`}).join('');
+  let h='';
+  if(S.onbRev&&S.role==='admin'){const x=(S.onbL||[]).find(o=>o.id===S.onbRev);if(x&&x.status==='submitted')h+=`<form class="card hi" data-form="onbConfirm" data-id="${x.id}"><h3 style="margin-bottom:6px">Skontrolovať a potvrdiť: ${e(x.name)}</h3><p class="muted small" style="margin:0 0 8px">Údaje skontrolujte s dokladmi. Rodné číslo, IBAN a údaje detí sú len v PDF.</p><div class="row" style="margin-bottom:8px"><a class="btn sec sm" href="${e(x.pdf_url)}" target="_blank" rel="noopener">Otvoriť PDF dotazníka</a><a class="btn sec sm" href="${e(x.folder_url)}" target="_blank" rel="noopener">Priečinok s prílohami</a></div>
+    <div class="f"><label>Osobné číslo (Pohoda) *</label><input name="os" required></div><div class="f"><label>Meno a priezvisko</label><input name="name" value="${e(x.name)}" required></div><div class="f"><label>E-mail</label><input name="email" value="${e(x.email)}"></div><div class="f"><label>Telefón</label><input name="phone" value="${e(x.phone)}"></div><div class="f"><label>Trvalé bydlisko</label><input name="address" value="${e(x.address)}"></div><div class="f"><label>Veľkosti</label><input name="sizes" value="${e(x.sizes)}"></div><div class="f"><label>Týždenný úväzok (h)</label><input name="weekly" value="40" inputmode="decimal"></div>
+    <div class="row" style="margin-top:10px"><button class="btn">Potvrdiť a vytvoriť zamestnanca</button><button type="button" class="btn sec" data-act="onbRevClose">Zavrieť</button></div></form>`}
+  if(S.onbLink){const l=(S.onbL||[]).find(o=>o.id===S.onbLink);if(l)h+=`<div class="card hi"><b>Odkaz pre ${e(l.label||'zamestnanca')}</b><p class="muted small" style="margin:4px 0 8px">Platí ${7} dní a je jednorazový. Pošlite ho zamestnancovi cez SMS alebo WhatsApp.</p><input readonly value="${e(onbLinkOf(l.id))}" onclick="this.select()" style="width:100%"><div class="row" style="margin-top:8px"><button class="btn" data-act="onbShare" data-id="${l.id}">Zdieľať</button><button class="btn sec" data-act="onbCopy" data-id="${l.id}">Kopírovať</button><button class="btn sec sm" data-act="onbLinkClose">Skryť</button></div></div>`}
+  h+=S.onbNew?`<form class="card" data-form="onbInvite"><h3 style="margin-bottom:6px">Pozvať nového zamestnanca · ${e(c.name)}</h3><div class="f"><label>Meno (len pre vás, na rozlíšenie)</label><input name="label" required maxlength="80"></div><label class="chk"><input type="checkbox" name="full" value="1"${/lavon/i.test(c.name)?' checked':''}> Rozšírené veľkosti (montérky, bunda, výška, váha, pás)</label><div class="row" style="margin-top:10px"><button class="btn">Vytvoriť odkaz</button><button type="button" class="btn sec" data-act="onbToggle">Zrušiť</button></div></form>`:
+    `<div class="card"><div class="row sp"><b>Noví zamestnanci – osobný dotazník</b><button class="btn sm" data-act="onbToggle">+ Pozvať</button></div>${rows||'<p class="muted small" style="margin:6px 0 0">Zamestnancovi pošlete odkaz, vyplní dotazník na mobile, podpíše a odfotí doklady.</p>'}</div>`;
+  return h}
 /* ===================== štart ===================== */
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 (async function start(){
+  if(BOOT.o){onbStart();return}
   render();
   if(TOK){let c=null;try{c=JSON.parse(localStorage.getItem('dstate')||'null')}catch(_){}
-    if(c&&c.d&&c.d.me&&c.ym===S.ym){const d=c.d;Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],ready:true});if(!S.companyId||!S.companies.some(x=>x.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;render();load()}else await load()}else{S.ready=true;render()}
+    if(c&&c.d&&c.d.me&&c.ym===S.ym){const d=c.d;Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],onbL:d.onb||[],ready:true});if(!S.companyId||!S.companies.some(x=>x.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;render();load()}else await load()}else{S.ready=true;render()}
   if(S.me)afterLogin();
   setInterval(()=>{if(S.me&&!document.hidden&&!S.scan&&!S.qrView&&!S.cp.draft&&!S.cpPrint)load()},60000);
 })();
