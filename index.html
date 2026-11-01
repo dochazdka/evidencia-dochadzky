@@ -264,7 +264,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null,o:null};try{const sp=new URLSearchParams(location.search),qq=sp.get('q'),oo=sp.get('o');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}if(oo&&/^[0-9a-f]{24}$/.test(oo)){BOOT.o=oo;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v56';
+const APP_VER='test v57';
 const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -280,11 +280,22 @@ function call(action,args){
 let PIGGY=null; // čerstvý stav, ktorý server pribalil k poslednému zápisu (ušetrí druhé volanie)
 async function load(){
   try{const pg=PIGGY;PIGGY=null;const d=pg&&pg.d.ym===S.ym&&Date.now()-pg.at<15000?pg.d:await call('state',{ym:S.ym});
+    for(const k in MC)delete MC[k];MC[d.ym]={entries:d.entries,notes:d.notes||[],tripDays:d.tripDays||[]};
     Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],onbL:d.onb||[],chg:d.chg||[],veh:d.veh||null,mydocs:d.mydocs||[],docs:d.docs||[],ready:true});try{localStorage.setItem('dstate',JSON.stringify({ym:S.ym,d:d}))}catch(_){}
     if(!S.companyId){try{S.companyId=localStorage.getItem('dcomp')}catch(_){}}
     if(!S.companyId||!S.companies.some(c=>c.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;
     schedule()}
   catch(x){if(x.auth){dropSession();render()}else{S.ready=true;toast(x.message,true)}}}
+// Prepnutie mesiaca: načíta sa len mesačná časť (dochádzka, poznámky, cesty). Navštívené mesiace sa hneď zobrazia z pamäte a na pozadí obnovia.
+const MC={};
+function monthApply(m){S.entries=m.entries;S.notes=m.notes;S.tripDays=m.tripDays}
+async function loadMonth(){
+  const ym=S.ym,hit=MC[ym];
+  if(hit){monthApply(hit);schedule()}
+  try{const d=await call('stateMonth',{ym});MC[ym]={entries:d.entries,notes:d.notes||[],tripDays:d.tripDays||[]};
+    if(S.ym===ym){monthApply(MC[ym]);schedule()}
+    const pv=shiftYm(ym,-1);if(!MC[pv]&&pv.slice(0,4)===ym.slice(0,4))call('stateMonth',{ym:pv}).then(p=>{if(!MC[pv])MC[pv]={entries:p.entries,notes:p.notes||[],tripDays:p.tripDays||[]}},()=>{})}
+  catch(x){if(x.auth){dropSession();render()}else if(/Neznáma akcia/.test(x.message))return load();else toast(x.message,true)}}
 function dropSession(){TOK=null;try{VZ.key=null;VZ.d=null}catch(_){}try{localStorage.removeItem('dtok');localStorage.removeItem('dstate')}catch(_){}S.role=null;S.me=null;S.ready=true;S.detailId=null}
 
 const role=()=>S.role;
@@ -352,12 +363,20 @@ function viewLogin(){
   <button class="btn big">Prihlásiť</button></form>
   <p class="muted small">Skúšobná verzia. Prihlasovacie meno a PIN vám dá administrátor.</p></div>`}
 
+// iPhone neponúka inštaláciu automaticky (Apple to webovým aplikáciám nedovolí) – zobrazíme krátky návod, kým ho človek nezavrie.
+function iosHint(){
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const inst=window.navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+  let off=false;try{off=localStorage.getItem('dios')==='1'}catch(_){}
+  if(!ios||inst||off)return '';
+  return `<div class="note" style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1"><b>Ikona na ploche iPhonu:</b> v Safari ťuknite na <b>Zdieľať</b> (štvorček so šípkou hore) a zvoľte <b>Pridať na plochu</b>. Na príchod a odchod cez QR kód to nie je potrebné.</div><button class="btn sec sm" data-act="iosHintOff" aria-label="Zavrieť návod">OK</button></div>`}
 function viewShell(){
   const r=role();const rn={admin:'Administrátor',manager:'Správca',employee:'Zamestnanec'}[r];
   const name=S.isOwner?'Admin':S.me.name;
   const cs=myCompanies();
   let h=`<div class="top"><div class="brand"><i></i>Dochádzka <span class="ver">${APP_VER}</span></div><div class="row" style="flex-wrap:nowrap"><div class="who"><b>${e(name)}</b>${rn}</div><button class="btn sec sm" data-act="pinToggle" title="Zmeniť PIN / heslo">PIN</button><button class="btn sec sm" data-act="logout">Odhlásiť</button></div></div>`;
   if(S.pinForm){const adm=r==='admin';h+=`<form class="card hi" data-form="pinChange"><h3 style="margin-bottom:8px">Zmeniť ${adm?'heslo':'PIN'}</h3><div class="row"><div class="f"><label>Súčasný ${adm?'heslo':'PIN'}</label><input name="old" type="password" autocomplete="current-password" ${adm?'':'inputmode="numeric"'} required></div><div class="f"><label>Nový ${adm?'heslo (aspoň 10 znakov)':'PIN (6 až 12 číslic)'}</label><input name="pin" type="password" autocomplete="new-password" ${adm?'minlength="10"':'inputmode="numeric" pattern="[0-9]{6,12}"'} required></div><div class="f"><label>Nový znova</label><input name="pin2" type="password" autocomplete="new-password" ${adm?'':'inputmode="numeric"'} required></div></div><div class="row" style="margin-top:10px"><button class="btn">Uložiť</button><button type="button" class="btn sec" data-act="pinToggle">Zavrieť</button></div><p class="muted small" style="margin:6px 0 0">Na ostatných zariadeniach sa po zmene odhlásite.</p></form>`}
+  h+=iosHint();
   if(r==='employee')return h+viewEmployee();
   if(!cs.length&&r==='manager')return h+`<div class="card">Zatiaľ vám nebola pridelená žiadna firma.</div>`;
   const tabs=[['ziadosti','Žiadosti'+(pendingCount()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${pendingCount()}</b>`:'')],['prehlad','Prehľad']];{const cc=companyOf(S.companyId)||{};if(cc.no_rides!==true)tabs.push(['cesty','CP']);if(cc.veh_on)tabs.push(['voz','Vozidlá']);tabs.push(['stravne','Stravné'],['ludia','Ľudia'])}
@@ -820,7 +839,7 @@ const handlers={
   logout(){call('logout').catch(()=>{});dropSession();render()},
   tab(el){S.cp.loaded='';if(el.dataset.v==='prehlad'){JC.key=null;JC.form=null}if(el.dataset.v==='voz'){VZ.key=null;VZ.d=null;VZ.form='';VZ.edit=null}S.tab=el.dataset.v;S.detailId=null;S.exportText=null;render()},
   company(el){S.cp.loaded='';S.companyId=el.value;S.detailId=null;S.vozFull=false;try{localStorage.setItem('dcomp',el.value)}catch(_){}render()},
-  month(el){S.cp.loaded='';S.jz.key='';S.ym=shiftYm(S.ym,+el.dataset.d);S.exportText=null;return load()},
+  month(el){S.cp.loaded='';S.jz.key='';const y0=S.ym.slice(0,4);S.ym=shiftYm(S.ym,+el.dataset.d);S.exportText=null;return S.ym.slice(0,4)!==y0?load():loadMonth()},
   open(el){S.detailId=el.dataset.id;navPush();render()},
   back(){navBack(()=>{S.detailId=null;JC.key=null;render()})},
   hidePin(){S.newPin=null;render()},
@@ -887,6 +906,7 @@ const handlers={
   useGeo(el){const form=el.closest('form');if(!navigator.geolocation)return toast('Poloha nie je dostupná',true);
     navigator.geolocation.getCurrentPosition(p=>{form.querySelector('[name=lat]').value=p.coords.latitude.toFixed(6);form.querySelector('[name=lng]').value=p.coords.longitude.toFixed(6);toast('Poloha doplnená. Uložte pracovisko.')},()=>toast('Polohu sa nepodarilo zistiť. Zadajte súradnice ručne.',true),{enableHighAccuracy:true,timeout:15000})},
   scanDone(){S.scan=null;render()},
+  iosHintOff(){try{localStorage.setItem('dios','1')}catch(_){}render()},
   scanRetry(){return runScan()},
   cam(){return openCam()},
   empScreen(el){S.emp=S.emp||{};if(el.dataset.s==='home'){navBack(()=>{S.emp.screen='home';S.emp.brk=false;S.emp.add=false;render()});return}S.emp.screen=el.dataset.s;S.emp.brk=false;S.emp.add=false;navPush();render()},
