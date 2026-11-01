@@ -119,8 +119,6 @@ textarea.xml{height:160px;font-family:ui-monospace,monospace;font-size:12px}
 <div id="app"><p class="muted">Načítavam…</p></div>
 <div id="cam" hidden><video id="camv" playsinline muted></video><div class="camframe"></div><p class="camtxt">Namierte fotoaparát na QR kód PRÍCHOD alebo ODCHOD</p><button class="btn big camx" id="camx">Zrušiť</button></div>
 <script src="config.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script>
 (function(){
 'use strict';
@@ -265,7 +263,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null,o:null};try{const sp=new URLSearchParams(location.search),qq=sp.get('q'),oo=sp.get('o');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}if(oo&&/^[0-9a-f]{24}$/.test(oo)){BOOT.o=oo;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v53';
+const APP_VER='test v54';
 const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -274,11 +272,13 @@ let renderQ=false,pendingAfterBlur=false;
 
 function call(action,args){
   if(!API)return Promise.reject(new Error('Chýba adresa servera v súbore config.js.'));
-  return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({t:TOK,a:action,x:args||{}})})
+  const x=Object.assign({},args||{});if(action!=='state'&&TOK&&S.ready&&S.me)x.__st=S.ym;
+  return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({t:TOK,a:action,x:x})})
     .then(r=>r.json(),()=>{throw new Error('Spojenie so serverom zlyhalo. Skontrolujte internet.')})
-    .then(r=>{if(r&&r.ok)return r.data;const er=new Error((r&&r.error)||'Chyba servera');er.auth=/Prihláste|Relácia vypršala|Účet nie je/.test(er.message);throw er})}
+    .then(r=>{if(r&&r.ok){if(r.st)PIGGY={d:r.st,at:Date.now()};return r.data}const er=new Error((r&&r.error)||'Chyba servera');er.auth=/Prihláste|Relácia vypršala|Účet nie je/.test(er.message);throw er})}
+let PIGGY=null; // čerstvý stav, ktorý server pribalil k poslednému zápisu (ušetrí druhé volanie)
 async function load(){
-  try{const d=await call('state',{ym:S.ym});
+  try{const pg=PIGGY;PIGGY=null;const d=pg&&pg.d.ym===S.ym&&Date.now()-pg.at<15000?pg.d:await call('state',{ym:S.ym});
     Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],onbL:d.onb||[],chg:d.chg||[],ready:true});try{localStorage.setItem('dstate',JSON.stringify({ym:S.ym,d:d}))}catch(_){}
     if(!S.companyId||!S.companies.some(c=>c.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;
     schedule()}
@@ -301,15 +301,17 @@ function userMonth(u,ym){
   for(const a of S.absences){if(a.user_id!==u.id||a.status!=='approved')continue;
     for(let d=a.date_from;d<=a.date_to;d=addDay(d,1)){if(d.slice(0,7)!==ym)continue;const w=weekday(d);if(w===0||w===6||isHoliday(d))continue;abd[d]=a.kind;if(a.part==='half')half.add(d)}}
   const brkOv={};for(const n of (S.notes||[]))if(n.user_id===u.id&&n.brk!==undefined&&n.brk!=='')brkOv[n.day]=+n.brk;
-  const noMeal=new Set((S.tripDays||[]).filter(t=>t.user_id===u.id).map(t=>t.day));const m=computeMonth(ym,ebd,abd,u,rulesOf(c),{meal_rate:c.meal_rate||0,sf_rate:c.sf_rate||0,noMeal,noMealAll:!!u.no_meal,brkOv,half});m.ebd=ebd;return m}
+  const noMeal=new Set((S.tripDays||[]).filter(t=>t.user_id===u.id).map(t=>t.day));const m=computeMonth(ym,ebd,abd,u,rulesOf(c),{meal_rate:rateAt(c,ym).m,sf_rate:rateAt(c,ym).s,noMeal,noMealAll:!!u.no_meal,brkOv,half});m.ebd=ebd;return m}
 async function safe(fn){try{await fn()}catch(x){console.error(x);if(x&&x.auth){dropSession();render();return}toast(x&&x.message?x.message:'Akcia zlyhala',true)}}
 
 /* ===================== vykresľovanie ===================== */
-function schedule(){if(renderQ||S.gridDirty)return;renderQ=true;requestAnimationFrame(()=>{renderQ=false;const a=document.activeElement;if(a&&a!==document.body&&$app.contains(a)&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&a.dataset.keep!=='no'){pendingAfterBlur=true;return}render()})}
+let formDirty=false; // rozpísaný formulár: obnovenie na pozadí ho nesmie prepísať
+document.addEventListener('input',ev=>{const t=ev.target;if(t&&t.closest&&t.closest('form[data-form]')&&!t.closest('#onbf'))formDirty=true},true);
+function schedule(){if(renderQ||S.gridDirty)return;if(formDirty){pendingAfterBlur=false;return}renderQ=true;requestAnimationFrame(()=>{renderQ=false;const a=document.activeElement;if(a&&a!==document.body&&$app.contains(a)&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&a.dataset.keep!=='no'){pendingAfterBlur=true;return}render()})}
 document.addEventListener('focusout',()=>{if(pendingAfterBlur)setTimeout(()=>{if(S.gridDirty){pendingAfterBlur=false;return}if(pendingAfterBlur&&!($app.contains(document.activeElement)&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))){pendingAfterBlur=false;render()}},120)});
 
 function render(){
-  pendingAfterBlur=false;let html;
+  pendingAfterBlur=false;formDirty=false;let html;
   if(S.onb){if(S.onb.phase==='form'&&S.onb.drawn&&$app.querySelector('#onbf'))return;html=viewOnb()}
   else if(S.qrView)html=viewQrSheet();
   else if(!S.ready)html='<p class="muted">Načítavam…</p>';
@@ -330,7 +332,8 @@ function viewScan(){
   ${s.state==='busy'||s.state==='ok'?'':`<div class="row" style="margin-top:6px"><button class="btn" data-act="scanDone">Pokračovať</button>${s.state==='err'&&BOOT.q?'<button class="btn sec" data-act="scanRetry">Skúsiť znova</button>':''}</div>`}
   </div></div>`}
 
-function qrSvg(url){const q=qrcode(0,'M');q.addData(url);q.make();return q.createSvgTag({cellSize:6,margin:2,scalable:true})}
+function libLoad(src){window.__lib=window.__lib||{};if(!window.__lib[src])window.__lib[src]=new Promise((ok,no)=>{const t=document.createElement('script');t.src=src;t.async=true;t.onload=ok;t.onerror=()=>{delete window.__lib[src];no(new Error('Knižnicu sa nepodarilo načítať.'))};document.head.appendChild(t)});return window.__lib[src]}
+function qrSvg(url){if(!window.qrcode){libLoad('lib/qrcode.min.js').then(()=>schedule()).catch(()=>{});return '<p class="muted small">Načítavam QR kód…</p>'}const q=qrcode(0,'M');q.addData(url);q.make();return q.createSvgTag({cellSize:6,margin:2,scalable:true})}
 function viewQrSheet(){
   const l=S.locations.find(x=>x.id===S.qrView);if(!l)return '<p>Pracovisko sa nenašlo.</p>';const c=companyOf(l.company_id)||{name:''};
   return `<div class="row sp noprint" style="margin-bottom:8px"><button class="btn sec sm" data-act="closeQr">‹ Späť</button><button class="btn sm" data-act="printQr">Tlačiť</button></div>
@@ -350,7 +353,8 @@ function viewShell(){
   const r=role();const rn={admin:'Administrátor',manager:'Správca',employee:'Zamestnanec'}[r];
   const name=S.isOwner?'Admin':S.me.name;
   const cs=myCompanies();
-  let h=`<div class="top"><div class="brand"><i></i>Dochádzka <span class="ver">${APP_VER}</span></div><div class="row" style="flex-wrap:nowrap"><div class="who"><b>${e(name)}</b>${rn}</div><button class="btn sec sm" data-act="logout">Odhlásiť</button></div></div>`;
+  let h=`<div class="top"><div class="brand"><i></i>Dochádzka <span class="ver">${APP_VER}</span></div><div class="row" style="flex-wrap:nowrap"><div class="who"><b>${e(name)}</b>${rn}</div><button class="btn sec sm" data-act="pinToggle" title="Zmeniť PIN / heslo">PIN</button><button class="btn sec sm" data-act="logout">Odhlásiť</button></div></div>`;
+  if(S.pinForm){const adm=r==='admin';h+=`<form class="card hi" data-form="pinChange"><h3 style="margin-bottom:8px">Zmeniť ${adm?'heslo':'PIN'}</h3><div class="row"><div class="f"><label>Súčasný ${adm?'heslo':'PIN'}</label><input name="old" type="password" autocomplete="current-password" ${adm?'':'inputmode="numeric"'} required></div><div class="f"><label>Nový ${adm?'heslo (aspoň 10 znakov)':'PIN (6 až 12 číslic)'}</label><input name="pin" type="password" autocomplete="new-password" ${adm?'minlength="10"':'inputmode="numeric" pattern="[0-9]{6,12}"'} required></div><div class="f"><label>Nový znova</label><input name="pin2" type="password" autocomplete="new-password" ${adm?'':'inputmode="numeric"'} required></div></div><div class="row" style="margin-top:10px"><button class="btn">Uložiť</button><button type="button" class="btn sec" data-act="pinToggle">Zavrieť</button></div><p class="muted small" style="margin:6px 0 0">Na ostatných zariadeniach sa po zmene odhlásite.</p></form>`}
   if(r==='employee')return h+viewEmployee();
   if(!cs.length&&r==='manager')return h+`<div class="card">Zatiaľ vám nebola pridelená žiadna firma.</div>`;
   const tabs=[['ziadosti','Žiadosti'+(pendingCount()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${pendingCount()}</b>`:'')],['prehlad','Prehľad'],['cesty','Cesty'],['stravne','Stravné'],['ludia','Ľudia']];
@@ -622,8 +626,13 @@ function viewCompanies(){
     <div class="f"><label>1. prestávka (min, min. 30)</label><input name="b1_min" type="number" step="5" min="30" max="120" value="${c.b1_min||30}"></div>
     <div class="f"><label>2. prestávka po (h, max. 9)</label><input name="b2_h" type="number" step="0.25" min="1" max="9" value="${(c.b2_after||540)/60}"></div>
     <div class="f"><label>2. prestávka (min, min. 30)</label><input name="b2_min" type="number" step="5" min="30" max="120" value="${c.b2_min||30}"></div></div>
-    <div class="row" style="margin-top:8px"><div class="f"><label>Stravné €/deň</label><input name="meal_rate" type="number" step="0.01" min="0" value="${c.meal_rate||0}"></div>
-    <div class="f"><label>Príspevok SF €/deň</label><input name="sf_rate" type="number" step="0.01" min="0" value="${c.sf_rate||0}"></div></div>
+    <div class="row" style="margin-top:8px"><div class="f"><label>Stravné €/deň</label><input name="meal_rate" type="number" step="0.01" min="0" value="${rateAt(c,today().slice(0,7)).m}"></div>
+    <div class="f"><label>Príspevok SF €/deň</label><input name="sf_rate" type="number" step="0.01" min="0" value="${rateAt(c,today().slice(0,7)).s}"></div>
+    <div class="f"><label>Sadzba platí od mesiaca</label><input name="rate_from" type="month" value="${today().slice(0,7)}"></div></div>
+    ${(()=>{const h=Array.isArray(c.rate_hist)?c.rate_hist:[],ym=today().slice(0,7),nx=ymAdd(ym,1),w=[];
+      for(const m of [ym,nx]){const r=rateAt(c,m);if(r.m>0&&r.m<mealMin(m))w.push(`Sadzba ${fmt2(r.m)} € za ${strLab(m)} je pod zákonným minimom ${fmt2(mealMin(m))} € (55 % stravného 5–12 h${m>='2026-12'?' = 9,80 € od 1. 12. 2026':''}).`)}
+      return (h.length>1?`<p class="muted small" style="margin:6px 0 0">História sadzieb: ${h.map(x=>`od ${x.from==='2000-01'?'začiatku':strLab(x.from)} ${fmt2(+x.meal)} + ${fmt2(+x.sf)} SF`).join(' · ')}</p>`:'')+(w.length?`<div class="note" style="margin-top:6px">${w.map(e).join('<br>')}</div>`:'')})()}
+    <p class="muted small" style="margin:4px 0 0">Pri zmene sadzby vyberte mesiac, od ktorého platí. Staršie mesiace sa ďalej prepočítajú pôvodnou sadzbou.</p>
     <div class="row" style="margin-top:8px"><div class="f"><label>Zložka mzdy – nadčas</label><input name="w_overtime" value="${e(wageName(c,'overtime'))}"></div><div class="f"><label>Zložka mzdy – sviatok</label><input name="w_holiday" value="${e(wageName(c,'holiday'))}"></div></div>
     <div class="row" style="margin-top:8px"><div class="f"><label>Zložka mzdy – noc (voliteľné)</label><input name="w_night" value="${e(wageName(c,'night'))}"></div><div class="f"><label>Zložka mzdy – sobota (voliteľné)</label><input name="w_saturday" value="${e(wageName(c,'saturday'))}"></div><div class="f"><label>Zložka mzdy – nedeľa (voliteľné)</label><input name="w_sunday" value="${e(wageName(c,'sunday'))}"></div></div>
     <p class="muted small">Názvy zložiek musia presne zodpovedať číselníku Zložky mzdy v Pohode. Prázdne políčko sa neexportuje.</p>
@@ -708,7 +717,7 @@ async function openCam(){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){closeCam();return toast('Tento prehliadač nepodporuje fotoaparát.',true)}
   try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});v.srcObject=camStream;await v.play()}
   catch(x){closeCam();return toast('Fotoaparát sa nepodarilo spustiť. Povoľte ho v nastaveniach prehliadača.',true)}
-  const det=('BarcodeDetector' in window)?new BarcodeDetector({formats:['qr_code']}):null;
+  const det=('BarcodeDetector' in window)?new BarcodeDetector({formats:['qr_code']}):null;if(!det)libLoad('lib/jsQR.min.js').catch(()=>{});
   const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});let busy=false;
   camTimer=setInterval(async()=>{if(busy||v.readyState<2)return;busy=true;let txt=null;
     try{if(det){const r=await det.detect(v);if(r.length)txt=r[0].rawValue}
@@ -850,6 +859,7 @@ const handlers={
   empScreen(el){S.emp=S.emp||{};if(el.dataset.s==='home'){navBack(()=>{S.emp.screen='home';S.emp.brk=false;S.emp.add=false;render()});return}S.emp.screen=el.dataset.s;S.emp.brk=false;S.emp.add=false;navPush();render()},
   chgToggle(){S.emp=S.emp||{screen:'home'};if(S.emp.chg){navBack(()=>{S.emp.chg=false;render()});return}S.emp.chg=true;S.emp.brk=false;S.emp.add=false;S.chgPhoto=null;navPush();render()},
   async chgDone(el){try{await call('chgDone',{id:el.dataset.id});await load();toast('Označené ako vybavené')}catch(x){toast(x.message,true)}},
+  pinToggle(){S.pinForm=!S.pinForm;render()},
   empOpen(el){S.editU=el.dataset.id;render();try{window.scrollTo({top:0,behavior:'smooth'})}catch(_){}},
   empClose(){S.editU=null;render()},
   async empDelete(el){const u=S.users.find(x=>x.id===el.dataset.id);if(!u||!confirm('Naozaj vymazať: '+u.name+'? Nedá sa vrátiť späť.'))return;try{await call('userDelete',{id:u.id});S.editU=null;await load();toast('Zamestnanec vymazaný')}catch(x){toast(x.message,true)}},
@@ -873,6 +883,7 @@ const forms={
 
   empAddEntry:async f=>{const op=openEntry();if(!f.get('in')){if(op&&op.day===f.get('day')&&f.get('out')){await mut('corrAdd',{entry_id:op.id,time:f.get('out')},'Odchod odoslaný na schválenie');S.emp=S.emp||{};S.emp.add=false;return}throw new Error('Vyplňte príchod.')}await call('entryReq',{day:f.get('day'),in:f.get('in'),out:f.get('out'),note:f.get('note')});S.emp=S.emp||{};S.emp.add=false;if(navDepth>0)navBack(()=>{});await load();toast('Doplnené, čaká na schválenie správcom')},
   chg:async f=>{const k=f.get('kind');const r=await call('chgSubmit',{kind:k,v1:k==='bank'?f.get('iban'):k==='insurer'?f.get('insurer'):k==='email'?f.get('email'):'',v2:k==='bank'?f.get('accname'):k==='insurer'?f.get('since'):'',text:f.get('text')||'',photo:k==='insurer'?S.chgPhoto:null});S.chgPhoto=null;S.emp.chg=false;if(navDepth>0)navBack(()=>{});await load();toast('Zmena odoslaná správcovi')},
+  pinChange:async f=>{if(f.get('pin')!==f.get('pin2'))throw new Error('Nové hodnoty sa nezhodujú.');await call('pinChange',{old:f.get('old'),pin:f.get('pin')});S.pinForm=false;render();toast('Zmenené')},
   empSave:async(f,form)=>{const id=form.dataset.id,u=S.users.find(x=>x.id===id),emp=!!(u&&u.company_id);const a={id:id,address:f.get('address')||''};
     if(emp){a.from=f.get('from')||'';a.to=f.get('to')||'';a.fixed_from=f.get('fixed_from')||'';a.fixed_to=f.get('fixed_to')||'';a.no_meal=!f.get('meal');a.spol=!!f.get('spol');if(f.has('cp_role'))a.cp_role=f.get('cp_role');if(f.has('os')){a.os=f.get('os');a.weekly=f.get('weekly')}}
     const r=await call('userEdit',a);S.editU=null;await load();toast(r&&r.outside?`Uložené. Pozor: ${r.outside} záznamov dochádzky je mimo pracovného pomeru.`:'Uložené')},
@@ -888,17 +899,17 @@ const forms={
   mgrAbs:(f,form)=>mut('absAdd',{user_id:form.dataset.uid,kind:f.get('kind'),from:f.get('from'),to:f.get('to'),part:f.get('part'),who:f.get('who')},'Zapísané'),
   async addUser(f){const ro=f.get('role');S.newPin=await call('userAdd',{name:f.get('name'),username:f.get('username'),role:ro==='both'?'manager':ro,both:ro==='both',company_id:f.get('company'),companies:f.getAll('mc'),os:f.get('os'),weekly:f.get('weekly'),dohoda:f.get('pomer')==='dohoda',spol:!!f.get('spol')});await load()},
   async addCompany(f){const r=await call('companyAdd',{name:f.get('name'),ico:f.get('ico')});S.companyId=r.id;await load();toast('Firma založená')},
-  saveCompany:(f,form)=>mut('companySave',{id:form.dataset.id,name:f.get('name'),ico:f.get('ico'),round_min:f.get('round_min'),meal_h:f.get('meal_h'),b1_h:f.get('b1_h'),b1_min:f.get('b1_min'),b2_h:f.get('b2_h'),b2_min:f.get('b2_min'),meal_rate:f.get('meal_rate'),sf_rate:f.get('sf_rate'),mode:f.get('mode'),geo:f.get('geo'),
+  saveCompany:(f,form)=>mut('companySave',{id:form.dataset.id,name:f.get('name'),ico:f.get('ico'),round_min:f.get('round_min'),meal_h:f.get('meal_h'),b1_h:f.get('b1_h'),b1_min:f.get('b1_min'),b2_h:f.get('b2_h'),b2_min:f.get('b2_min'),meal_rate:f.get('meal_rate'),sf_rate:f.get('sf_rate'),rate_from:f.get('rate_from'),mode:f.get('mode'),geo:f.get('geo'),
     wage_map:{overtime:f.get('w_overtime').trim(),holiday:f.get('w_holiday').trim(),night:f.get('w_night').trim(),saturday:f.get('w_saturday').trim(),sunday:f.get('w_sunday').trim()}},'Uložené'),
   saveStrCfg:(f,form)=>mut('stravneCfg',{company_id:form.dataset.id,skip:f.get('skip')==='1',mode:f.get('mode'),fixed:String(f.get('fixed')||'').replace(',','.'),acc:{nakl:f.get('a_nakl'),sf:f.get('a_sf'),pohl:f.get('a_pohl'),zam:f.get('a_zam'),spol:f.get('a_spol'),banka:f.get('a_banka'),die:f.get('a_die'),cpzal:f.get('a_cpzal')},pk:Object.fromEntries(['zak','sf','zal','zals','diez','dies','diezal'].map(k=>[k,f.get('p_'+k)]))},'Uložené'),
-  strManual:async(f)=>{const c=companyOf(S.companyId),rm=+c.meal_rate||0,rs=+c.sf_rate||0,rate=rm+rs,items=[];for(let i=0;f.has('u'+i);i++){if(f.get('ck'+i)!=='1')continue;const tot=+String(f.get('t'+i)).replace(',','.')||0,m=rate?Math.round(tot*rm/rate*100)/100:tot;items.push({user_id:f.get('u'+i),ym:f.get('m'+i),days:+String(f.get('d'+i)).replace(',','.')||0,meal_amt:m,sf_amt:Math.round((tot-m)*100)/100,kind:f.get('k'+i)})}
+  strManual:async(f)=>{const c=companyOf(S.companyId),rm=rateAt(c,S.ym).m,rs=rateAt(c,S.ym).s,rate=rm+rs,items=[];for(let i=0;f.has('u'+i);i++){if(f.get('ck'+i)!=='1')continue;const tot=+String(f.get('t'+i)).replace(',','.')||0,m=rate?Math.round(tot*rm/rate*100)/100:tot;items.push({user_id:f.get('u'+i),ym:f.get('m'+i),days:+String(f.get('d'+i)).replace(',','.')||0,meal_amt:m,sf_amt:Math.round((tot-m)*100)/100,kind:f.get('k'+i)})}
     if(!items.length){toast('Zaškrtnite riadky, ktoré chcete uložiť.',true);return}await call('stravneSave',{company_id:c.id,items});await load();toast('Preddavky uložené')},
   saveLoc:(f,form)=>mut('locationSave',{id:form.dataset.id||undefined,company_id:form.dataset.cid,name:f.get('name'),lat:f.get('lat'),lng:f.get('lng'),radius:f.get('radius')},'Uložené')
 };
 const KEEP=['saveCompany','login','saveLoc','saveStrCfg','strManual'];
 $app.addEventListener('click',ev=>{const el=ev.target.closest('[data-act]');if(!el||el.tagName==='SELECT')return;if(S.gridDirty&&!GRID_ACTS.has(el.dataset.act)){if(!confirm('Máte neuložené zmeny v tabuľke. Zahodiť ich?'))return;S.gridDirty=false}const fn=handlers[el.dataset.act];if(fn){ev.preventDefault();safe(()=>fn(el))}});
 $app.addEventListener('change',ev=>{const el=ev.target;if(el.tagName==='SELECT'&&el.dataset.act){const fn=handlers[el.dataset.act];if(fn)safe(()=>fn(el))}});
-$app.addEventListener('submit',ev=>{const form=ev.target.closest('[data-form]');if(!form)return;ev.preventDefault();const fn=forms[form.dataset.form];if(!fn)return;const f=new FormData(form);
+$app.addEventListener('submit',ev=>{const form=ev.target.closest('[data-form]');if(!form)return;ev.preventDefault();formDirty=false;const fn=forms[form.dataset.form];if(!fn)return;const f=new FormData(form);
   safe(async()=>{await fn(f,form);if(form.isConnected&&KEEP.indexOf(form.dataset.form)<0)form.reset()})});
 
 
@@ -925,12 +936,16 @@ function strPlanDays(u,c,ym){const cfg=strCfg(c);let n=0;
     n+=f}
   return n}
 /** Riadky pre mzdy za mesiac M: preddavok na M (vyplatený skôr), nárok M, preplatok, preddavok na M+2 (návrh alebo zafixovaný). */
-function strRows(c,M){const rm=+c.meal_rate||0,rs=+c.sf_rate||0,rate=rm+rs,M1=ymAdd(M,1),M2=ymAdd(M,2),st=S.stravne||[];
+/** Sadzba stravného firmy platná v mesiaci ym (história „platné od“, inak aktuálna sadzba). */
+function rateAt(c,ym){const h=(c&&Array.isArray(c.rate_hist))?c.rate_hist:[];let r=null;for(const x of h)if(x.from<=ym)r=x;return r?{m:+r.meal||0,s:+r.sf||0}:{m:+(c&&c.meal_rate)||0,s:+(c&&c.sf_rate)||0}}
+/** Zákonné minimum príspevku zamestnávateľa: 55 % stravného pre 5–12 h (od 1. 12. 2026 9,80 €, predtým 9,30 €). */
+function mealMin(ym){return ym>='2026-12'?5.39:5.12}
+function strRows(c,M){const M1=ymAdd(M,1),M2=ymAdd(M,2),st=S.stravne||[],R0=rateAt(c,M),R2=rateAt(c,M2),rm=R0.m,rs=R0.s,rate2=R2.m+R2.s;
   const users=S.users.filter(u=>(u.role==='employee'||u.role==='manager')&&u.company_id===c.id&&!u.no_meal&&(u.active!==false||st.some(x=>x.user_id===u.id&&(x.ym===M||x.ym===M2)))).sort((a,b)=>a.name.localeCompare(b.name,'sk'));
   return users.map(u=>{const row=ym=>st.find(x=>x.user_id===u.id&&x.ym===ym);const A=row(M),A1=row(M1),A2=row(M2);
     const nd=userMonth(u,M).tot.meal_days,Bm=r2(nd*rm),Bs=r2(nd*rs),aAmt=A?r2(A.meal_amt+A.sf_amt):null;
-    const prepl=A?r2(aAmt-Bm-Bs):0,D2=strPlanDays(u,c,M2),full=r2(D2*rate),C=full,rest=0;
-    const Cm=rate?r2(C*rm/rate):0,Cs=r2(C-Cm),D1=strPlanDays(u,c,M1);
+    const prepl=A?r2(aAmt-Bm-Bs):0,D2=strPlanDays(u,c,M2),full=r2(D2*rate2),C=full,rest=0;
+    const Cm=rate2?r2(C*R2.m/rate2):0,Cs=r2(C-Cm),D1=strPlanDays(u,c,M1);
     if(strCfg(c).mode==='pevny'){const P=st.find(x=>x.user_id===u.id&&x.kind==='pevny'),R=st.find(x=>x.user_id===u.id&&x.kind==='vratka'),fx=strCfg(c).fixed,hire=u.emp_from?u.emp_from.slice(0,7):'',end=u.emp_to?u.emp_to.slice(0,7):'';
       const pa=P?r2(P.meal_amt+P.sf_amt):0;let pv=0,pst='';
       if(P&&P.ym===M){pv=pa;pst='nast-ulozene'}else if(!P&&hire===M&&fx>0){pv=fx;pst='nast'}
@@ -946,7 +961,7 @@ function strMzdy(c,M,rows){const D=strDiety(c,M);
 function strMzdyTable(c,M,rows,pdf){const L=strMzdy(c,M,rows),sg=n=>n<0?'−'+fmtEur(-n):fmtEur(n);
   const tot=i=>r2(L.reduce((s,x)=>s+x.v[i],0));
   return `<table><thead><tr><th>Os. č.</th><th>Zamestnanec</th>${STR_ZL.map(z=>`<th class="r">${e(z)}</th>`).join('')}</tr></thead><tbody>${L.map(x=>`<tr><td>${e(x.os)}</td><td>${e(x.u.name)}${x.u.spol?' (spoločník)':''}</td>${x.v.map((n,i)=>`<td class="r">${n?(i===3?sg(n):fmtEur(n)):'–'}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="7">${pdf?'':'<span class="muted">'}Žiadne položky.${pdf?'':'</span>'}</td></tr>`}</tbody>${L.length?`<tfoot><tr><th></th><th>Spolu</th>${STR_ZL.map((z,i)=>`<th class="r">${i===3?sg(tot(i)):fmtEur(tot(i))}</th>`).join('')}</tr></tfoot>`:''}</table>`}
-function strLines(c,M,rows){const cfg=strCfg(c),a=cfg.acc,rm=+c.meal_rate||0,rs=+c.sf_rate||0,rt=rm+rs;
+function strLines(c,M,rows){const cfg=strCfg(c),a=cfg.acc,rm=rateAt(c,M).m,rs=rateAt(c,M).s,rt=rm+rs;
   const nd=r2(rows.reduce((s,r)=>s+r.nd,0)),Bm=r2(rows.reduce((s,r)=>s+r.Bm,0)),Bs=r2(rows.reduce((s,r)=>s+r.Bs,0));
   const adv=sp=>{const l=rows.filter(r=>r.spol===sp);return{d:r2(l.reduce((s,r)=>s+(r.A2?r.A2.days:r.D2),0)),amt:r2(l.reduce((s,r)=>s+(r.A2?r.A2.meal_amt+r.A2.sf_amt:r.C),0))}};
   const z=adv(false),sp=adv(true);
@@ -960,7 +975,7 @@ function strDietyLines(c,M){const a=strCfg(c).acc,D=strDiety(c,M),o=[];
   o.push({t:'Spoločníci - CP - nezd. náhrady / diéty',q:1,rate:D.spol,amt:D.spol,md:a.die,d:a.spol,pk:'dies'});
   if(a.cpzal&&a.cpzal!=='-')o.push({t:'Preúčtovanie úhrady CP v mzdách zamestnancov',q:1,rate:D.zam,amt:D.zam,md:a.cpzal,d:a.zam,pk:'diezal'});
   return o}
-function strCfgCard(c){if(FS.ok&&FS.names['firm:'+c.id]===undefined)FS.load(['firm:'+c.id,'pohoda']).then(()=>render());const g=strCfg(c),a=g.acc;const pkf=(k,t)=>`<div class="f"><label>${t}</label><input name="p_${k}" value="${e(g.pk[k])}" maxlength="12"></div>`;const f=(k,t)=>`<div class="f"><label>${t}</label><input name="a_${k}" value="${e(a[k])}" inputmode="numeric"></div>`;
+function strCfgCard(c){if(FS.ok&&FS.names['firm:'+c.id]===undefined)FS.load(['firm:'+c.id,'pohoda']).then(()=>schedule());const g=strCfg(c),a=g.acc;const pkf=(k,t)=>`<div class="f"><label>${t}</label><input name="p_${k}" value="${e(g.pk[k])}" maxlength="12"></div>`;const f=(k,t)=>`<div class="f"><label>${t}</label><input name="a_${k}" value="${e(a[k])}" inputmode="numeric"></div>`;
   return `<form class="card" data-form="saveStrCfg" data-id="${c.id}"><h3 style="margin-bottom:6px">Stravné – nastavenie · ${e(c.name)}</h3>
   <label style="display:flex;gap:8px;align-items:center;font-size:14px;color:inherit;font-weight:400"><input type="checkbox" name="skip" value="1"${g.skip?' checked':''} style="width:auto"> Do preddavku nepočítať schválené neprítomnosti (dovolenka, PN, OČR, lekár…)</label>
   <div class="row" style="margin:8px 0"><div class="f"><label>Spôsob stravného</label><select name="mode"><option value="mesacny"${g.mode==='mesacny'?' selected':''}>Mesačná záloha (zákonný model)</option><option value="pevny"${g.mode==='pevny'?' selected':''}>Pevná záloha pri nástupe</option></select></div><div class="f"><label>Pevná záloha €</label><input name="fixed" value="${g.fixed?String(g.fixed).replace('.',','):''}" inputmode="decimal" placeholder="napr. 100"></div></div>
@@ -993,7 +1008,7 @@ function viewStravnePevny(c,M,locked,rm,rs){
 function viewStravne(){
   const c=companyOf(S.companyId);if(!c)return `<div class="card">Najprv založte firmu v záložke Firmy.</div>`;
   {const P=S.cp;if(P.loaded!==c.id+'|'+S.ym&&!P.busy){P.busy=true;const cid=S.companyId;cpLoad().finally(()=>{P.busy=false;if(S.tab==='stravne')render()})}}
-  const M=S.ym,M1=ymAdd(M,1),M2=ymAdd(M,2),locked=isLocked(c.id,M),rm=+c.meal_rate||0,rs=+c.sf_rate||0,rate=rm+rs;
+  const M=S.ym,M1=ymAdd(M,1),M2=ymAdd(M,2),locked=isLocked(c.id,M),rm=rateAt(c,M).m,rs=rateAt(c,M).s,rate=rm+rs;
   if(!(rate>0))return `<div class="card">${monthNav()}<div class="note">Pri firme ${e(c.name)} nie je nastavené Stravné €/deň ani Príspevok SF. Nastaví ich administrátor v záložke Firmy.</div></div>`;
   if(strCfg(c).mode==='pevny')return viewStravnePevny(c,M,locked,rm,rs);
   const rows=strRows(c,M),fixed=rows.filter(r=>r.A2&&r.A2.kind==='mzdy').length;
@@ -1027,9 +1042,9 @@ function viewStravne(){
   ${c.ico?'':'<p class="muted small" style="margin:6px 0 0">Pri firme chýba IČO (záložka Firmy).</p>'}
   <p class="muted small" style="margin:6px 0 0">V Pohode musia existovať predkontácie (agenda Interné doklady) so skratkami z nastavenia firmy. Import: Súbor › Dátová komunikácia › XML import.</p></div>`;
   return h}
-function strPdfHtml(c,M,){const rows=strRows(c,M),L=strLines(c,M,rows),M2=ymAdd(M,2),rate=(+c.meal_rate||0)+(+c.sf_rate||0);
+function strPdfHtml(c,M,){const rows=strRows(c,M),L=strLines(c,M,rows),M2=ymAdd(M,2),rate=rateAt(c,M).m+rateAt(c,M).s;
   let h=`<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;font-size:11px;color:#111}h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;margin:16px 0 6px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:4px 6px;text-align:left}th{background:#eee}.r{text-align:right}small{color:#555}</style></head><body>`;
-  h+=`<h1>Stravné – mzdy za ${strLab(M)}</h1><div>${e(c.name)} · sadzba ${fmt2(+c.meal_rate||0)} + ${fmt2(+c.sf_rate||0)} SF = ${fmt2(rate)} €/deň</div><small>Vytvorené ${new Date().toLocaleString('sk-SK')}.</small>`;
+  h+=`<h1>Stravné – mzdy za ${strLab(M)}</h1><div>${e(c.name)} · sadzba ${fmt2(rateAt(c,M).m)} + ${fmt2(rateAt(c,M).s)} SF = ${fmt2(rate)} €/deň</div><small>Vytvorené ${new Date().toLocaleString('sk-SK')}.</small>`;
   if(strCfg(c).mode==='pevny'){h+=`<h2>Skutočný nárok a pevná záloha</h2><table><tr><th>Zamestnanec</th><th class="r">Nárok (dni)</th><th class="r">Nárok €</th><th class="r">Záloha (+ nástup, − ukončenie)</th></tr>${rows.map(r=>`<tr><td>${e(r.u.name)}${r.spol?' (spoločník)':''}</td><td class="r">${fmtDec(r.nd)}</td><td class="r">${fmtEur(r.Bm+r.Bs)}</td><td class="r">${r.pv?fmtEur(r.pv):'–'}</td></tr>`).join('')}</table>`}else{
   h+=`<h2>Preddavky a skutočný nárok</h2><table><tr><th>Zamestnanec</th><th class="r">Preddavok na ${strLab(M)}</th><th class="r">Nárok (dni)</th><th class="r">Nárok €</th><th class="r">Rozdiel</th><th class="r">Preddavok na ${strLab(M2)}</th></tr>`;
   for(const r of rows){const nx=r.A2?r.A2.meal_amt+r.A2.sf_amt:r.C;h+=`<tr><td>${e(r.u.name)}${r.spol?' (spoločník)':''}</td><td class="r">${r.A?fmtEur(r.aAmt):'chýba'}</td><td class="r">${fmtDec(r.nd)}</td><td class="r">${fmtEur(r.Bm+r.Bs)}</td><td class="r">${r.A?fmtEur(r.prepl):'–'}</td><td class="r">${fmtEur(nx)}${r.rest?' (zostáva '+fmtEur(r.rest)+' na zrážku)':''}</td></tr>`}
