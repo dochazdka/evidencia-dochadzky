@@ -17,6 +17,7 @@
 body{background:var(--paper);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.4;
   padding-block:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 #app{max-width:760px;margin:0 auto;padding-block:12px 48px}
+@media (min-width:900px){#app.wide,#app.wide:has(.grid){max-width:1200px}}
 h1,h2,h3{margin:0;line-height:1.2}
 h2{font-size:18px} h3{font-size:15px}
 .top{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 0 12px}
@@ -26,8 +27,8 @@ h2{font-size:18px} h3{font-size:15px}
 .who{font-size:13px;color:var(--muted);text-align:right;min-width:0}
 .who b{color:var(--ink);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .firmbar{margin-bottom:10px}.firmbar select{font-weight:700}.firmbar1{margin:0 0 8px;font-size:15px}
-.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:2px solid var(--line);margin-bottom:14px}
-.tabs button{background:none;border:0;padding:10px 12px;font:inherit;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap}
+.tabs{display:flex;flex-wrap:wrap;gap:0 4px;border-bottom:2px solid var(--line);margin-bottom:14px}
+.tabs button{background:none;border:0;padding:8px 9px;font:inherit;font-size:14px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap}
 .tabs button[aria-current="true"]{color:var(--ink);border-bottom-color:var(--signal)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
 .card.hi{border-color:var(--signal);background:var(--soft)}
@@ -264,7 +265,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null,o:null};try{const sp=new URLSearchParams(location.search),qq=sp.get('q'),oo=sp.get('o');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}if(oo&&/^[0-9a-f]{24}$/.test(oo)){BOOT.o=oo;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v60';
+const APP_VER='test v61';
 const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -335,6 +336,7 @@ function render(){
   else if(S.cpPrint)html=viewCpPrint();
   else if(S.scan)html=viewScan();
   else html=viewShell();
+  $app.classList.toggle('wide',!!S.me&&(S.role==='admin'||(S.role==='manager'&&S.tab!=='moja')));
   $app.innerHTML=html+(S.toast?`<div class="toast${S.toast.err?' err':''}" role="status">${e(S.toast.msg)}</div>`:'');
 }
 
@@ -630,7 +632,7 @@ function empEditCard(){const u=S.editU?S.users.find(x=>x.id===S.editU):null;if(!
   <label class="chk" style="margin-top:8px"><input type="checkbox" name="meal" value="1"${u.no_meal?'':' checked'}> Má nárok na stravné</label>
   <label class="chk"><input type="checkbox" name="spol" value="1"${u.spol?' checked':''}> Spoločník (konateľ) – záloha na stravné sa účtuje cez 366</label>`:''}
   <div class="row" style="margin-top:12px"><button class="btn">Uložiť</button><button type="button" class="btn sec" data-act="empClose">Zavrieť</button></div>
-  <div class="row" style="margin-top:10px;flex-wrap:wrap"><button type="button" class="btn sec sm" data-act="resetPin" data-id="${u.id}">Nový PIN</button><button type="button" class="btn sec sm" data-act="toggleActive" data-id="${u.id}">${u.active===false?'Aktivovať účet':'Vypnúť účet'}</button>${adm&&emp?`<button type="button" class="btn bad sm" data-act="empDelete" data-id="${u.id}">Vymazať</button>`:''}</div>
+  <div class="row" style="margin-top:10px;flex-wrap:wrap"><button type="button" class="btn sec sm" data-act="resetPin" data-id="${u.id}">Nový PIN</button><button type="button" class="btn sec sm" data-act="toggleActive" data-id="${u.id}">${u.active===false?'Aktivovať účet':'Vypnúť účet'}</button>${adm&&u.company_id?`<button type="button" class="btn sec sm" data-act="toggleMgr" data-id="${u.id}">${u.role==='manager'?'Zrušiť správcu':'Urobiť správcom'}</button>`:''}${adm&&emp?`<button type="button" class="btn bad sm" data-act="empDelete" data-id="${u.id}">Vymazať</button>`:''}</div>
   <p class="muted small" style="margin:6px 0 0">Vypnutý účet sa nemôže prihlásiť, údaje a história zostanú. Vymazať sa dá len omylom založený človek bez záznamov.</p></form>`}
 function viewPeople(){
   const r=role();const cs=myCompanies();
@@ -828,7 +830,7 @@ const handlers={
   cpRoleCycle(el){const u=S.users.find(x=>x.id===el.dataset.id);const nx={'':'vodic',vodic:'spolujazdec',spolujazdec:''}[(u&&u.cp_role)||''];return mut('userCpRole',{id:el.dataset.id,role:nx},'Uložené')},
   editFixed(el){const u=S.users.find(x=>x.id===el.dataset.id);const v=prompt('Pevná pracovná doba (napr. 08:00-10:00). Prázdne = bez pevnej doby:',u&&u.fixed_from?u.fixed_from+'-'+u.fixed_to:'');if(v===null)return;const mm=/^\s*(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*$/.exec(v);if(v.trim()&&!mm)throw new Error('Zadajte čas v tvare 08:00-10:00');const z=t=>t.length===4?'0'+t:t;return mut('userFixed',{id:el.dataset.id,from:mm?z(mm[1]):'',to:mm?z(mm[2]):''},'Uložené')},
   alsoEmp(el){return mut('userSetRole',{id:el.dataset.id,alsoEmp:true,company_id:S.companyId},'Uložené')},
-  toggleMgr(el){const u=S.users.find(x=>x.id===el.dataset.id);return mut('userSetRole',{id:el.dataset.id,manager:u.role!=='manager'},'Uložené')},
+  toggleMgr(el){const u=S.users.find(x=>x.id===el.dataset.id);if(!u||!confirm(u.role==='manager'?'Zrušiť správcu „'+snName(u.name)+'“? Ostane obyčajným zamestnancom, dochádzka a údaje zostanú.':'Urobiť „'+snName(u.name)+'“ správcom firmy? Uvidí a upravuje údaje celej firmy.'))return;S.editU=null;return mut('userSetRole',{id:el.dataset.id,manager:u.role!=='manager'},'Uložené')},
   async fillFixed(){const cid=S.companyId;let n=0;const t=today();for(const u of employees(cid).filter(x=>x.fixed_from)){const m=userMonth(u,S.ym);const days=m.days.filter(d=>d.wd>=1&&d.wd<=5&&!d.holiday&&!d.abs&&!d.gross&&!d.open&&!d.trip&&d.date<=t).map(d=>d.date);if(days.length){const r=await call('fixedFill',{user_id:u.id,days});n+=r.added}}await load();toast(n?'Doplnených dní: '+n:'Nie je čo dopĺňať')},
   editAddr(el){const u=S.users.find(x=>x.id===el.dataset.id);const v=prompt('Bydlisko zamestnanca (ulica, obec):',u&&u.address||'');if(v===null)return;return mut('userAddress',{id:el.dataset.id,address:v},'Uložené')},
   cpNew(){S.cp.draft=newDraft();S.cp.prev=null;render()},
