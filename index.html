@@ -264,7 +264,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null,o:null};try{const sp=new URLSearchParams(location.search),qq=sp.get('q'),oo=sp.get('o');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}if(oo&&/^[0-9a-f]{24}$/.test(oo)){BOOT.o=oo;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v58';
+const APP_VER='test v59';
 const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -281,7 +281,7 @@ let PIGGY=null; // čerstvý stav, ktorý server pribalil k poslednému zápisu 
 async function load(){
   try{const pg=PIGGY;PIGGY=null;const d=pg&&pg.d.ym===S.ym&&Date.now()-pg.at<15000?pg.d:await call('state',{ym:S.ym});
     for(const k in MC)delete MC[k];MC[d.ym]={entries:d.entries,notes:d.notes||[],tripDays:d.tripDays||[]};
-    Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],onbL:d.onb||[],chg:d.chg||[],veh:d.veh||null,mydocs:d.mydocs||[],docs:d.docs||[],ready:true});try{localStorage.setItem('dstate',JSON.stringify({ym:S.ym,d:d}))}catch(_){}
+    Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],onbL:d.onb||[],chg:d.chg||[],veh:d.veh||null,mydocs:d.mydocs||[],docs:d.docs||[],intdocs:d.intdocs||[],ready:true});try{localStorage.setItem('dstate',JSON.stringify({ym:S.ym,d:d}))}catch(_){}
     if(!S.companyId){try{S.companyId=localStorage.getItem('dcomp')}catch(_){}}
     if(!S.companyId||!S.companies.some(c=>c.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;
     schedule()}
@@ -452,8 +452,8 @@ function viewEmployee(){
   const pend=S.absences.filter(a=>a.user_id===u.id&&a.status==='pending').length;
   h+=`<div style="display:flex;gap:10px;margin:0 0 12px"><button class="btn big sec" style="flex:1" data-act="empScreen" data-s="prehlad">Prehľad</button><button class="btn big sec" style="flex:1" data-act="empScreen" data-s="abs">Neprítomnosť${pend?` <span class="pill warn">${pend} čaká</span>`:''}</button></div>`;
   const inToday=mine.some(x=>x.day===t);
-  if(S.emp.brk&&inToday)h+=brkForm(u,c);else if(S.emp.add)h+=addForm(c);else if(S.emp.chg)h+=chgForm();else if(S.emp.docs)h+=docsView();
-  else{h+=vzEmpCard();h+=`<div style="display:flex;gap:10px;margin:0 0 12px">${inToday?`<button class="btn sec" style="flex:1" data-act="brkToggle">Prestávka</button>`:''}<button class="btn sec" style="flex:1" data-act="addToggle">Doplniť dochádzku</button></div><div style="display:flex;gap:10px;margin:0 0 12px"><button class="btn sec sm" style="flex:1" data-act="chgToggle">Nahlásiť zmenu údajov${(S.chg||[]).some(x=>x.status==='pending')?' <span class="pill warn">čaká</span>':''}</button><button class="btn sec sm" style="flex:1" data-act="docsToggle">Dokumenty na podpis${docsPending()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${docsPending()}</b>`:''}</button></div>`}
+  if(S.emp.brk&&inToday)h+=brkForm(u,c);else if(S.emp.add)h+=addForm(c);else if(S.emp.chg)h+=chgForm();else if(S.emp.docs)h+=docsView();else if(S.emp.int)h+=intView();
+  else{h+=vzEmpCard();h+=`<div style="display:flex;gap:10px;margin:0 0 12px">${inToday?`<button class="btn sec" style="flex:1" data-act="brkToggle">Prestávka</button>`:''}<button class="btn sec" style="flex:1" data-act="addToggle">Doplniť dochádzku</button></div><div style="display:flex;gap:10px;margin:0 0 12px"><button class="btn sec sm" style="flex:1" data-act="chgToggle">Nahlásiť zmenu údajov${(S.chg||[]).some(x=>x.status==='pending')?' <span class="pill warn">čaká</span>':''}</button><button class="btn sec sm" style="flex:1" data-act="docsToggle">Dokumenty na podpis${docsPending()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${docsPending()}</b>`:''}</button></div><div style="display:flex;gap:10px;margin:0 0 12px"><button class="btn sec sm" style="flex:1" data-act="intToggle">Interné dokumenty${intPending()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${intPending()}</b>`:''}</button></div>`}
   return h}
 
 function dayList(u,m,editable,c){
@@ -639,7 +639,7 @@ function viewPeople(){
   if(S.users.some(u=>u.fixed_from&&u.company_id===S.companyId))h+=`<div class="card"><b>Pevná pracovná doba</b><p class="muted small" style="margin:4px 0 8px">Doplní dochádzku za ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)} zamestnancom s pevnou dobou (pracovné dni po dnes, bez sviatkov, neprítomností a dní s existujúcim záznamom).</p><button class="btn" data-act="fillFixed">Doplniť pevnú dobu za mesiac</button></div>`;
   const list=S.users.filter(u=>u.role!=='admin'&&(u.company_id===S.companyId||(u.companies||[]).includes(S.companyId)));
   h+=onbCard();
-  h+=docsCard();
+  h+=docsCard();h+=intCard(companyOf(S.companyId));
   h+=empEditCard();
   h+=`<div class="card"><div class="wrap"><table><thead><tr><th>Meno</th><th>Meno na prihlásenie</th><th>Rola</th><th></th></tr></thead><tbody>${list.sort((a,b)=>snName(a.name).localeCompare(snName(b.name),'sk')).map(u=>`<tr${u.active===false?' style="opacity:.5"':''}><td>${e(snName(u.name))}${u.os_cislo?`<div class="muted small">os. č. ${e(u.os_cislo)}</div>`:''}${[u.spol?'spoločník':'',u.no_meal?'bez stravného':'',u.fixed_from?'pevná doba '+u.fixed_from+'–'+u.fixed_to:'',u.cp_role&&(companyOf(u.company_id)||{}).no_rides!==true?'jazdy: '+(u.cp_role==='vodic'?'vodič':'spolujazdec'):'',u.active===false?'vypnutý':''].filter(Boolean).map(t=>`<span class="pill">${e(t)}</span>`).join(' ')}${u.emp_from||u.emp_to?`<div class="muted small">pracovný pomer ${u.emp_from?'od '+dmyFull(u.emp_from):''}${u.emp_to?' do '+dmyFull(u.emp_to):''}</div>`:''}<div class="muted small">${u.role==='manager'?(u.companies||[]).map(id=>(companyOf(id)||{name:'?'}).name).join(', '):(companyOf(u.company_id)||{name:'?'}).name}</div></td><td>${e(u.username)}</td><td>${u.role==='manager'?'správca':'zamestnanec'}</td><td class="r"><button class="btn sec sm" data-act="empOpen" data-id="${u.id}">Upraviť</button></td>`).join('')||'<tr><td colspan="4" class="muted">Zatiaľ nikto.</td></tr>'}</tbody></table></div></div>`;
   if(!cs.length)return h;
@@ -661,7 +661,7 @@ function locForm(l,cid){
 function viewCompanies(){
   let h='';
   if(!S.companies.length)h+=`<div class="note">Začnite založením prvej firmy. Potom pridajte pracovisko, zamestnancov v záložke Ľudia a vytlačte QR kódy.</div>`;
-  for(const c of S.companies.filter(x=>x.id===S.companyId)){
+  for(const c of S.companies.filter(x=>x.id===S.companyId)){h+=cimgCard(c);
     h+=`<form class="card" data-form="saveCompany" data-id="${c.id}"><h3 style="margin-bottom:10px">${e(c.name)}</h3>
     <div class="row"><div class="f"><label>Názov</label><input name="name" value="${e(c.name)}" required></div><div class="f"><label>IČO (Pohoda)</label><input name="ico" value="${e(c.ico||'')}"></div></div>
     <div class="row" style="margin-top:8px"><div class="f"><label>Evidencia</label><select name="mode"><option value="qr"${c.mode!=='manual'?' selected':''}>QR kód a poloha</option><option value="manual"${c.mode==='manual'?' selected':''}>Ručné zadanie</option></select></div>
@@ -685,6 +685,7 @@ function viewCompanies(){
     <div class="row sp" style="margin-top:10px;align-items:center"><span class="small">Cestovné príkazy (záložka CP) a rola vodič / spolujazdec: <b>${c.no_rides===true?'vypnuté':'zapnuté'}</b></span><button type="button" class="btn sec sm" data-act="ridesToggle" data-id="${c.id}">${c.no_rides===true?'Zapnúť':'Vypnúť'}</button></div>
     <div class="row sp" style="margin-top:6px;align-items:center"><span class="small">Vozidlá a kniha jázd (záložka Vozidlá, jazdy vodičov): <b>${c.veh_on?'zapnuté':'vypnuté'}</b></span><button type="button" class="btn sec sm" data-act="vehToggle" data-id="${c.id}">${c.veh_on?'Vypnúť':'Zapnúť'}</button></div>
     <div style="margin-top:8px"><button class="btn">Uložiť firmu</button></div></form>
+    ${S.companies.length>1?`<div class="card"><b>Skryť firmu</b><p class="muted small" style="margin:4px 0 8px">Hodí sa napr. pre testovaciu firmu. Firma zmizne z výberu, dáta a súbory na Drive ostanú. Najprv musia byť odstránení všetci jej ľudia.</p><button class="btn sec sm" data-act="hideCompany" data-id="${c.id}">Skryť túto firmu</button></div>`:''}
     <details class="card dt" data-k="str"${(S.dt||{}).str?' open':''}><summary><b>Stravné – nastavenie · ${e(c.name)}</b></summary>${strCfgCard(c).replace('<form class="card"','<form class="dtin"')}</details>
     <details class="card dt" data-k="loc"${(S.dt||{}).loc===false?'':' open'}><summary><b>Pracoviská a QR kódy · ${e(c.name)}</b></summary><p class="muted small" style="margin:4px 0 0">Každé pracovisko má jeden pevný QR kód pre príchod a jeden pre odchod. Platnosť dochádzky chráni kontrola polohy. Ak by sa kód zneužil, vygenerujte nové.</p>
     ${S.locations.filter(l=>l.company_id===c.id).map(l=>locForm(l,c.id)).join('')}${locForm(null,c.id)}</details>`}
@@ -922,6 +923,7 @@ const handlers={
   empClose(){S.editU=null;render()},
   async empDelete(el){const u=S.users.find(x=>x.id===el.dataset.id);if(!u||!confirm('Naozaj vymazať: '+snName(u.name)+'? Nedá sa vrátiť späť.'))return;try{await call('userDelete',{id:u.id});S.editU=null;await load();toast('Zamestnanec vymazaný')}catch(x){toast(x.message,true)}},
   vehToggle(el){const c=companyOf(el.dataset.id);return mut('companyVeh',{id:el.dataset.id,v:!c.veh_on},'Uložené')},
+  async hideCompany(el){const c=companyOf(el.dataset.id);if(!c||!confirm('Skryť firmu „'+c.name+'“ z výberu? Dáta a súbory na Drive ostanú.'))return;el.disabled=true;try{await call('companyHide',{id:c.id});S.companyId=null;await load();toast('Firma skrytá')}catch(x){toast(x.message,true)}finally{el.disabled=false}},
   async archiveOld(el){if(!confirm('Presunúť záznamy dochádzky staršie ako 13 mesiacov (len uzavreté mesiace) do archívnej záložky v Tabuľke?'))return;el.disabled=true;try{const r=await call('archiveOld',{});toast(r.moved?'Presunuté do archívu: '+r.moved+' záznamov (pred '+r.before+')':'Nie je čo archivovať');await load()}catch(x){toast(x.message,true)}finally{el.disabled=false}},
   ridesToggle(el){const c=companyOf(el.dataset.id);return mut('companyRides',{id:el.dataset.id,v:c.no_rides===true},'Uložené')},
   brkToggle(){S.emp=S.emp||{screen:'home'};if(S.emp.brk){navBack(()=>{S.emp.brk=false;render()});return}S.emp.brk=true;S.emp.add=false;navPush();render()},
@@ -987,10 +989,11 @@ function docsPending(){return (S.mydocs||[]).filter(d=>d.status==='pending').len
 function docsView(){const L=S.mydocs||[],cur=S.emp.docId?L.find(d=>d.id===S.emp.docId):null;
   if(cur&&cur.status==='pending')return `<form class="card" data-form="docSign" data-id="${cur.id}"><h3 style="margin-bottom:6px">${e(cur.title)}</h3>${cur.note?`<p class="small" style="margin:0 0 6px">${e(cur.note)}</p>`:''}${cur.due?`<p class="muted small" style="margin:0 0 8px">Podpísať do ${vzD(cur.due)}</p>`:''}
     <button type="button" class="btn sec" data-act="docOpen" data-id="${cur.id}">📄 Otvoriť dokument</button>
+    ${(()=>{const dd=S.emp.dd;if(!dd||dd.id!==cur.id){docLoad(cur.id);return '<p class="muted small">Načítavam dokument…</p>'}if(dd.busy)return '<p class="muted small">Načítavam dokument…</p>';if(dd.err)return `<p class="err">${e(dd.err)}</p>`;setTimeout(()=>vzSig('docsig'),0);return dd.layout&&dd.layout.vyh?docVyhFields():''})()}
     <label class="chk" style="margin-top:12px"><input type="checkbox" name="agree" value="1"> Dokument som prečítal/a, porozumel/a som mu a súhlasím s ním.</label>
     <div style="margin-top:8px"><b>Podpis</b> <button type="button" class="btn sec sm" data-act="docSigClear" style="float:right">Zmazať</button></div><canvas id="docsig" class="sig"></canvas>
     <div class="row" style="margin-top:10px"><button class="btn">Podpísať</button><button type="button" class="btn sec" data-act="docBack">Späť</button></div></form>`;
-  return `<div class="card"><div class="row sp"><h3>Dokumenty na podpis</h3><button class="btn sec sm" data-act="docsToggle">Zavrieť</button></div>${L.length?L.map(d=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)" class="row sp"><span><b>${e(d.title)}</b><div class="muted small">${d.status==='signed'?'podpísané '+vzD(d.signed_at)+' '+vzT(d.signed_at):d.status==='cancelled'?'zrušené':d.due?'podpísať do '+vzD(d.due):'čaká na podpis'}</div></span>${d.status==='pending'?`<button class="btn sm" data-act="docPick" data-id="${d.id}">Podpísať</button>`:`<button class="btn sec sm" data-act="docOpen" data-id="${d.id}">Otvoriť</button>`}</div>`).join(''):'<p class="muted">Žiadne dokumenty.</p>'}</div>`}
+  return `<div class="card"><div class="row sp"><h3>Dokumenty na podpis</h3><button class="btn sec sm" data-act="docsToggle">Zavrieť</button></div>${L.length?L.map(d=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)" class="row sp"><span><b>${e(d.title)}</b><div class="muted small">${d.status==='signed'?'podpísané '+vzD(d.signed_at)+' '+vzT(d.signed_at):d.status==='cancelled'?'zrušené':d.due?'podpísať do '+vzD(d.due):'čaká na podpis'}</div></span>${d.status==='pending'?`<button class="btn sm" data-act="docPick" data-id="${d.id}">Podpísať</button>`:d.status==='signed'?`<span class="row"><button class="btn sec sm" data-act="docOpenSigned" data-id="${d.id}">Otvoriť</button><button class="btn sec sm" data-act="docDl" data-id="${d.id}">Uložiť kópiu</button></span>`:`<button class="btn sec sm" data-act="docOpen" data-id="${d.id}">Otvoriť</button>`}</div>`).join(''):'<p class="muted">Žiadne dokumenty.</p>'}</div>`}
 
 /* ---------- zamestnanec: jazdy ---------- */
 function vzEmpCard(){const V=S.veh;if(!V||!V.cars||!V.cars.length)return '';const r=V.ride,f=S.emp.vz||'';
@@ -1184,17 +1187,26 @@ async function vzPdf(v,p){const c=companyOf(S.companyId),html=vzPdfHtml(v,p),nam
 /* ---------- správca: dokumenty na podpis (v záložke Ľudia) ---------- */
 function docsCard(){const c=companyOf(S.companyId);if(!c)return '';const L=(S.docs||[]).filter(d=>d.company_id===c.id),nm=id=>snName((S.users.find(u=>u.id===id)||{name:'?'}).name),emp=employees(c.id);
   return `<details class="card dt" data-k="docs"${(S.dt||{}).docs?' open':''}><summary><b>Dokumenty na podpis</b>${L.some(d=>d.sig.some(s=>s.status==='pending'))?` <span class="pill warn">${L.reduce((t,d)=>t+d.sig.filter(s=>s.status==='pending').length,0)} nepodpísaných</span>`:''}</summary>
-  ${L.map(d=>{const sg=d.sig.filter(s=>s.status!=='cancelled'),ok=sg.filter(s=>s.status==='signed').length;return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="row sp"><span><b>${e(d.title)}</b><div class="muted small">${vzD(d.created_at)} · podpísané ${ok}/${sg.length}${d.due?' · do '+vzD(d.due):''}</div></span><span class="row"><button class="btn sec sm" data-act="docOpen" data-id="${d.id}">Otvoriť</button>${ok<sg.length?`<button class="btn sec sm" data-act="docCancel" data-id="${d.id}">Zrušiť</button>`:''}</span></div><div class="small" style="margin-top:4px">${sg.map(s=>`${s.status==='signed'?'✅':'⏳'} ${e(nm(s.user_id))}${s.status==='signed'?' <span class="muted">'+vzD(s.signed_at)+'</span>':s.seen_at?' <span class="muted">(otvorené)</span>':''}`).join(' · ')}</div></div>`}).join('')||'<p class="muted small">Zatiaľ žiadne.</p>'}
-  <form data-form="docCreate" style="margin-top:10px"><div class="row"><div class="f"><label>Názov dokumentu</label><input name="title" required placeholder="napr. Dodatok k pracovnej zmluve 2027"></div><div class="f"><label>Podpísať do</label><input type="date" name="due"></div></div>
+  ${L.map(d=>{const sg=d.sig.filter(s=>s.status!=='cancelled'),ok=sg.filter(s=>s.status==='signed').length;return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="row sp"><span><b>${e(d.title)}</b><div class="muted small">${vzD(d.created_at)} · podpísané ${ok}/${sg.length}${d.due?' · do '+vzD(d.due):''}</div></span><span class="row"><button class="btn sec sm" data-act="docOpen" data-id="${d.id}">Otvoriť</button>${ok<sg.length?`<button class="btn sec sm" data-act="docCancel" data-id="${d.id}">Zrušiť</button>`:''}</span></div><div class="small" style="margin-top:4px">${sg.map(s=>`${s.status==='signed'?`✅ <a href="#" data-act="docOpenSigned" data-id="${d.id}" data-u="${s.user_id}">${e(nm(s.user_id))}</a>`:'⏳ '+e(nm(s.user_id))}${s.status==='signed'?' <span class="muted">'+vzD(s.signed_at)+'</span>':s.seen_at?' <span class="muted">(otvorené)</span>':''}`).join(' · ')}</div></div>`}).join('')||'<p class="muted small">Zatiaľ žiadne.</p>'}
+  ${docBulkCard(c)}
+  <p style="margin:14px 0 4px"><b>Jeden dokument viacerým</b></p><form data-form="docCreate" style="margin-top:4px"><div class="row"><div class="f"><label>Názov dokumentu</label><input name="title" required placeholder="napr. Dodatok k pracovnej zmluve 2027"></div><div class="f"><label>Podpísať do</label><input type="date" name="due"></div></div>
   <div class="f"><label>Dokument (PDF)</label><input type="file" name="pdf" accept="application/pdf" required></div><div class="f"><label>Poznámka pre zamestnancov</label><input name="note" maxlength="300"></div>
   <div class="f"><label>Komu</label><label class="chk"><input type="checkbox" data-docall> Všetci</label><div class="chks">${emp.map(u=>`<label class="chk"><input type="checkbox" name="u" value="${u.id}"> ${e(snName(u.name))}</label>`).join('')}</div></div>
   <button class="btn" style="margin-top:8px">Poslať na podpis</button><p class="muted small" style="margin:6px 0 0">Zamestnanec dokument otvorí v appke, potvrdí a podpíše prstom. Podpisová strana s odtlačkom dokumentu sa uloží na Drive (Firma / Rok / Dokumenty / Meno).</p></form></details>`}
 
 /* ---------- akcie ---------- */
 Object.assign(handlers,{
-  docsToggle(){S.emp=S.emp||{};S.emp.docs=!S.emp.docs;S.emp.docId=null;S.emp.chg=false;S.emp.vz='';render()},
-  docPick(el){S.emp.docId=el.dataset.id;render();setTimeout(()=>vzSig('docsig'),30)},
-  docBack(){S.emp.docId=null;render()},
+  docsToggle(){S.emp=S.emp||{};S.emp.docs=!S.emp.docs;S.emp.int=false;S.emp.docId=null;S.emp.chg=false;S.emp.vz='';render()},
+  docPick(el){S.emp.docId=el.dataset.id;S.emp.dd=null;render();setTimeout(()=>vzSig('docsig'),30)},
+  docBulkX(){S.db=null;render()},
+  async docBulkSend(){const B=S.db;if(!B)return;const due=(document.getElementById('dbDue')||{}).value||'',note=(document.getElementById('dbNote')||{}).value||'';B.due=due;B.note=note;
+    const R=B.rows.filter(r=>r.on&&r.uid);if(!R.length)return;if(!confirm(`Poslať ${R.length} dokumentov na podpis?`))return;let ok=0;const bad=[];
+    for(const r of R){toast(`Nahrávam ${ok+bad.length+1}/${R.length}…`);try{const pdf=await new Promise((y,n)=>{const f=new FileReader();f.onload=()=>y(f.result);f.onerror=n;f.readAsDataURL(r.file)});
+      await call('docCreate1',{company_id:B.cid,user_id:r.uid,title:r.title,due,note,layout:r.layout,pdf:String(pdf).replace(/^data:[^;]*;/,'data:application/pdf;')});ok++;r.sent=true}catch(x){bad.push(r.fname+': '+x.message)}}
+    S.db=bad.length?Object.assign(B,{rows:B.rows.filter(r=>!r.sent)}):null;await load();toast(`Poslané: ${ok}`+(bad.length?` · nepodarilo sa ${bad.length}: `+bad.join('; '):''),!!bad.length)},
+  async cimgDel(el){if(!confirm('Odstrániť obrázok? Do nových podpisov sa už nevloží.'))return;await call('companyImgSave',{company_id:el.dataset.c,kind:el.dataset.k,remove:true});delete S.cimg[el.dataset.c];toast('Odstránené');render()},
+  async docOpenSigned(el){const w=window.open('','_blank');try{toast('Otváram dokument…');let r;try{r=await call('docSignedGet',{id:el.dataset.id,user_id:el.dataset.u})}catch(_){r=await call('docGet',{id:el.dataset.id})}const u=URL.createObjectURL(b64Blob(r.b64,'application/pdf'));if(w)w.location=u;else{const a=document.createElement('a');a.href=u;a.download=r.title+'.pdf';document.body.appendChild(a);a.click();a.remove()}}catch(x){if(w)w.close();toast(x.message,true)}},
+  docBack(){S.emp.docId=null;S.emp.dd=null;render()},
   docSigClear(){const cv=document.getElementById('docsig');if(cv){cv.dataset.on='';cv.dataset.drawn='';vzSig('docsig')}},
   async docOpen(el){const w=window.open('','_blank');try{toast('Otváram dokument…');const r=await call('docGet',{id:el.dataset.id});const u=URL.createObjectURL(b64Blob(r.b64,'application/pdf'));if(w)w.location=u;else{const a=document.createElement('a');a.href=u;a.download=r.title+'.pdf';document.body.appendChild(a);a.click();a.remove()}}catch(x){if(w)w.close();toast(x.message,true)}},
   async docCancel(el){if(!confirm('Zrušiť podpisovanie tohto dokumentu?'))return;await mut('docCancel',{id:el.dataset.id},'Zrušené')},
@@ -1231,10 +1243,16 @@ Object.assign(forms,{
   async jcFix(f,form){await call('jazdyCheckFix',{company_id:S.companyId,user_id:form.dataset.u,day:form.dataset.d,in:f.get('in'),out:f.get('out')});JC.form=null;await load();await jcLoad(true);toast('Dochádzka upravená')},
   async jcOk(f,form){await call('jazdyCheckOk',{company_id:S.companyId,user_id:form.dataset.u,day:form.dataset.d,note:f.get('note')});JC.form=null;await jcLoad(true);toast('Označené ako v poriadku')},
   async docSign(f,form){const cv=document.getElementById('docsig');if(!f.get('agree'))throw new Error('Potvrďte, že ste dokument prečítali.');if(!cv||!cv.dataset.drawn)throw new Error('Podpíšte sa do rámčeka.');
-    await call('docSign',{id:form.dataset.id,agree:true,sig:cv.toDataURL('image/png')});S.emp.docId=null;await load();toast('Podpísané, ďakujeme')},
+    const dd=S.emp.dd&&S.emp.dd.id===form.dataset.id?S.emp.dd:null,a={id:form.dataset.id,agree:true,sig:cv.toDataURL('image/png')};
+    if(dd&&dd.layout&&dd.b64){let v=null;if(dd.layout.vyh){const kids=[];for(let i=0;i<6;i++){const n=String(f.get('kn'+i)||'').trim(),r=String(f.get('kr'+i)||'').trim();if(n||r){if(!n||!r)throw new Error('Pri dieťati vyplňte meno aj rodné číslo.');kids.push([n,r])}}
+        v={a:!!f.get('v_a'),b:!!f.get('v_b'),c:!!f.get('v_c'),kids};if(v.c&&!kids.length)throw new Error('Pri daňovom bonuse doplňte aspoň jedno dieťa.');if(!v.c&&kids.length)throw new Error('Deti vyplňte len pri daňovom bonuse (zaškrtnite ho).')}
+      const t=new Date(),p2=x=>String(x).padStart(2,'0'),day=`${p2(t.getDate())}.${p2(t.getMonth()+1)}.${t.getFullYear()}`;
+      toast('Pripravujem podpísaný dokument…');a.pdf=await pdfCompose(dd.b64,dd.layout,{sig:sigPng(cv),stamp:dd.stamp,vyh:v,day,when:day+' '+p2(t.getHours())+':'+p2(t.getMinutes())})}
+    await call('docSign',a);S.emp.docId=null;S.emp.dd=null;await load();toast('Podpísané, ďakujeme')},
   async docCreate(f){const file=f.get('pdf');if(!file||!file.size)throw new Error('Vyberte PDF.');if(file.size>8e6)throw new Error('PDF je väčšie ako 8 MB.');
     const pdf=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(file)});
-    toast('Nahrávam dokument…');await call('docCreate',{company_id:S.companyId,title:f.get('title'),due:f.get('due'),note:f.get('note'),user_ids:f.getAll('u'),pdf:String(pdf).replace(/^data:[^;]*;/,'data:application/pdf;')});await load();toast('Dokument poslaný na podpis')},
+    let layout=null;try{layout=await pdfLayout(new Uint8Array(await file.arrayBuffer()))}catch(_){}
+    toast('Nahrávam dokument…');await call('docCreate',{layout,company_id:S.companyId,title:f.get('title'),due:f.get('due'),note:f.get('note'),user_ids:f.getAll('u'),pdf:String(pdf).replace(/^data:[^;]*;/,'data:application/pdf;')});await load();toast('Dokument poslaný na podpis')},
   async rideStart(f){const late=!!f.get('late');let a={vehicle_id:f.get('vehicle_id')};
     if(f.get('km_start'))a.km_start=f.get('km_start');
     if(late){if(!f.get('time'))throw new Error('Zadajte, kedy ste vyrazili.');a.time=f.get('time');a.text=f.get('text')||''}
@@ -1754,12 +1772,133 @@ function onbCard(){const cs=myCompanies(),c=companyOf(S.companyId);if(!c)return 
     `<div class="card"><div class="row sp"><b>Noví zamestnanci – osobný dotazník</b><button class="btn sm" data-act="onbToggle">+ Pozvať</button></div>${rows||'<p class="muted small" style="margin:6px 0 0">Zamestnancovi pošlete odkaz, vyplní dotazník na mobile, podpíše a odfotí doklady.</p>'}</div>`;
   return h}
 /* ===================== štart ===================== */
+
+/* ---------- dokumenty: každému jeho dokument z Pohody, podpis priamo do PDF, pečiatka a logo firmy ---------- */
+const PDFJS_URL='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/',PDFLIB_URL='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+async function pdfjsReady(){await libLoad(PDFJS_URL+'pdf.min.js');window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_URL+'pdf.worker.min.js';return window.pdfjsLib}
+const b64ToU8=b=>{const s=atob(b),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u};
+const fold=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z]+/g,' ').trim();
+/* Kam patrí podpis zamestnanca, podpis zamestnávateľa a dátum: hľadá popisky a bodkovanú čiaru nad nimi. */
+async function pdfLayout(bytes){
+  const lib=await pdfjsReady(),doc=await lib.getDocument({data:bytes.slice(0)}).promise,L={};
+  for(let n=1;n<=doc.numPages;n++){const pg=await doc.getPage(n),tc=await pg.getTextContent(),H=pg.view[3];
+    const it=tc.items.filter(i=>i.str&&i.str.trim()).map(i=>({s:i.str,x:i.transform[4],y:i.transform[5],w:i.width}));
+    if(n===1&&Math.abs(H-842)<3&&it.some(i=>/VYH36v25/.test(i.s)))L.vyh={p:1,v:'VYH36v25'};
+    const dots=[];it.forEach(i=>{const m=/\.{8,}/.exec(i.s);if(m){const cw=i.w/i.s.length;dots.push({x:i.x+cw*m.index,y:i.y,w:cw*m[0].length,pre:i.s.slice(0,m.index)})}});
+    dots.sort((a,b)=>b.y-a.y||a.x-b.x);const D=[];for(const d of dots){const l=D[D.length-1];if(l&&Math.abs(l.y-d.y)<1.5&&d.x-(l.x+l.w)<4&&!d.pre.trim())l.w=d.x+d.w-l.x;else D.push(Object.assign({},d))}
+    const r1=v=>Math.round(v*10)/10,box=lb=>{const cx=lb.x+lb.w/2,c=D.filter(d=>d.y>lb.y+4&&d.y<lb.y+40&&cx>=d.x-5&&cx<=d.x+d.w+5).sort((a,b)=>a.y-b.y)[0];return c?{p:n,x:r1(c.x),y:r1(c.y),w:r1(c.w)}:null};
+    if(!L.emp)for(const lb of it.filter(i=>/podpis\s+zamestnanca/i.test(i.s))){const b=box(lb);if(b){L.emp=b;break}}
+    if(!L.empl)for(const lb of it.filter(i=>/podpis\s+zamestn[aá]vate[lľ]a/i.test(i.s))){const b=box(lb);if(b){L.empl=b;break}}
+    if(!L.date){const d=D.find(d=>/d[nň]a\s*$/i.test(d.pre));if(d)L.date={p:n,x:r1(d.x),y:r1(d.y),w:r1(d.w)}}}
+  return L.emp?L:null}
+/* Biele pozadie (sken pečiatky, podpis na bielom) → priehľadné, aby nezakrylo čiaru v dokumente. */
+function whiteToAlpha(cv){const g=cv.getContext('2d'),d=g.getImageData(0,0,cv.width,cv.height),p=d.data,hist=new Array(256).fill(0);for(let i=0;i<p.length;i+=4)hist[Math.round((p[i]+p[i+1]+p[i+2])/3)]++;
+  let bg=255,mx=-1;for(let l=128;l<256;l++)if(hist[l]>mx){mx=hist[l];bg=l}const t=Math.min(235,bg-22);/* farba papiera (sken býva sivastý) → priehľadná */
+  for(let i=0;i<p.length;i+=4){const l=(p[i]+p[i+1]+p[i+2])/3;if(l>t)p[i+3]=0;else if(l>t-45)p[i+3]=Math.round(p[i+3]*(t-l)/45)}g.putImageData(d,0,0);return cv.toDataURL('image/png')}
+function trimCanvas(cv){const g=cv.getContext('2d'),{width:w,height:h}=cv,p=g.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(p[(y*w+x)*4+3]>20){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+  if(x1<0)return cv;const o=document.createElement('canvas');o.width=x1-x0+1;o.height=y1-y0+1;o.getContext('2d').drawImage(cv,x0,y0,o.width,o.height,0,0,o.width,o.height);return o}
+function sigPng(cv){const c=document.createElement('canvas');c.width=cv.width;c.height=cv.height;c.getContext('2d').drawImage(cv,0,0);whiteToAlpha(c);return trimCanvas(c).toDataURL('image/png')}
+/* Text ako obrázok (písmo zariadenia zvládne diakritiku, netreba sťahovať fonty). */
+function txtPng(t,pt){const k=4,c=document.createElement('canvas'),g=c.getContext('2d'),f=`${pt*k}px Arial, Helvetica, sans-serif`;g.font=f;c.width=Math.ceil(g.measureText(t).width)+8;c.height=Math.ceil(pt*k*1.35);g.font=f;g.fillStyle='#0b2a6b';g.fillText(t,4,pt*k);return{u:c.toDataURL('image/png'),w:c.width/k,h:c.height/k,d:c.height/k-pt}}
+const VYH={a:[517,516],b:[517,480.5],c:[517,400],rows:[511.5,523,534,545.5,557],nx:[73,307],rx:[238,470]};
+/* Vyplnený a podpísaný dokument: originál z Pohody + krížiky, deti, dátum, podpis zamestnanca a pečiatka firmy. */
+async function pdfCompose(b64,L,o){await libLoad(PDFLIB_URL);const{PDFDocument,rgb}=window.PDFLib;const doc=await PDFDocument.load(b64ToU8(b64)),P=doc.getPages();
+  const img=async(u,p,x,y,w,h,center)=>{const im=await doc.embedPng(u),s=Math.min(w/im.width,h/im.height),iw=im.width*s,ih=im.height*s;P[p-1].drawImage(im,{x:center?x+(w-iw)/2:x,y,width:iw,height:ih})};
+  const text=async(t,p,x,y,pt)=>{if(!t)return;const r=txtPng(t,pt),im=await doc.embedPng(r.u);P[p-1].drawImage(im,{x,y:y-r.d,width:r.w,height:r.h})};
+  if(L.vyh&&o.vyh){const v=o.vyh,X=(xy)=>{const[x,y]=xy,c=rgb(0.04,0.16,0.42);P[0].drawLine({start:{x:x+2,y:y+2},end:{x:x+9.5,y:y+9.5},thickness:1.4,color:c});P[0].drawLine({start:{x:x+2,y:y+9.5},end:{x:x+9.5,y:y+2},thickness:1.4,color:c})};
+    if(v.a)X(VYH.a);if(v.b)X(VYH.b);if(v.c)X(VYH.c);
+    for(let i=0;i<Math.min(v.kids.length,10);i++){const col=i<5?0:1,row=i%5,y=842-VYH.rows[row]+3;await text(v.kids[i][0],1,VYH.nx[col],y,8);await text(v.kids[i][1],1,VYH.rx[col],y,8)}}
+  if(L.date)await text(o.day,L.date.p,L.date.x+12,L.date.y+1.5,9);
+  await img(o.sig,L.emp.p,L.emp.x,L.emp.y+2,L.emp.w,32,true);
+  await text('Podpísané elektronicky '+o.when,L.emp.p,L.emp.x,L.emp.y+36,6);
+  if(L.empl&&o.stamp)await img('data:image/png;base64,'+o.stamp,L.empl.p,L.empl.x,L.empl.y+2,L.empl.w,44,true);
+  return 'data:application/pdf;base64,'+await doc.saveAsBase64()}
+
+/* Názov súboru z Pohody: „Názov dokumentu_Priezvisko_Meno_Osobné číslo.pdf“. */
+function docNameParse(fn){const base=String(fn||'').replace(/\.pdf$/i,'').replace(/^[0-9a-f]{8}-/i,''),t=base.split('_').map(x=>x.trim()).filter((x,i,a)=>x||i===0);
+  const os=t.length>=3&&/^[A-Za-z]{0,3}\d{1,6}$/.test(t[t.length-1])?t[t.length-1]:'';
+  if(!os)return{title:base.replace(/_+/g,' ').trim(),sur:'',first:'',os:''};
+  return{title:t.slice(0,-3).join(' ').replace(/\s+/g,' ').trim(),sur:t[t.length-3]||'',first:t[t.length-2]||'',os}}
+function docMatch(p,cid){const emp=employees(cid),fn=fold(p.sur+' '+p.first).split(' ').sort().join(' '),nm=u=>fold(u.name).split(' ').sort().join(' ');
+  const byOs=p.os?emp.find(u=>String(u.os_cislo||'').trim().toUpperCase()===p.os.toUpperCase()):null;
+  if(byOs)return{uid:byOs.id,st:nm(byOs)===fn?'ok':'name'};
+  const byNm=fn?emp.filter(u=>nm(u)===fn):[];
+  if(byNm.length===1)return{uid:byNm[0].id,st:'byname'};
+  return{uid:'',st:'none'}}
+const DST={ok:['✅','sedí osobné číslo aj meno'],name:['⚠️','osobné číslo sedí, meno nie – skontrolujte'],byname:['⚠️','podľa mena (osobné číslo v apke chýba)'],none:['❌','nenašiel sa – vyberte ručne']};
+function docBulkCard(c){const B=S.db&&S.db.cid===c.id?S.db:null,emp=employees(c.id);
+  let h=`<div class="note" style="margin-top:10px"><b>Každému jeho dokument (z Pohody)</b><div class="small">Vyberte naraz všetky PDF. Zamestnanec sa nájde podľa osobného čísla v názve súboru a skontroluje sa meno. Môžete pridať aj viac dokumentov tej istej osobe.</div>
+  <input type="file" multiple accept="application/pdf" data-docbulk="1" style="margin-top:6px"></div>`;
+  if(!B)return h;
+  if(B.busy)return h+`<p class="muted small">Čítam súbory… ${B.done||0}/${B.rows.length}</p>`;
+  const ok=B.rows.filter(r=>r.on&&r.uid).length;
+  h+=`<div class="wrap"><table><thead><tr><th></th><th>Súbor</th><th>Dokument</th><th>Zamestnanec</th><th>Kontrola</th></tr></thead><tbody>${B.rows.map((r,i)=>`<tr><td><input type="checkbox" data-dbon="${i}"${r.on?' checked':''}${r.uid?'':' disabled'}></td><td class="small">${e(r.fname)}</td><td class="small">${e(r.title)}${r.layout?'':' <span class="pill warn">bez miesta na podpis – podpis na samostatnej strane</span>'}</td>
+    <td><select data-dbu="${i}"><option value="">—</option>${emp.map(u=>`<option value="${u.id}"${u.id===r.uid?' selected':''}>${e(snName(u.name))}${u.os_cislo?' ('+e(u.os_cislo)+')':''}</option>`).join('')}</select></td><td class="small">${DST[r.st][0]} ${DST[r.st][1]}</td></tr>`).join('')}</tbody></table></div>
+  <div class="row" style="margin-top:8px"><div class="f"><label>Podpísať do</label><input type="date" id="dbDue" value="${e(B.due||'')}"></div><div class="f"><label>Poznámka pre zamestnancov</label><input id="dbNote" maxlength="300" value="${e(B.note||'')}"></div></div>
+  <div class="row" style="margin-top:8px"><button type="button" class="btn" data-act="docBulkSend"${ok?'':' disabled'}>Poslať na podpis (${ok})</button><button type="button" class="btn sec" data-act="docBulkX">Zrušiť</button></div>`;
+  return h}
+async function docBulkRead(files){const cid=S.companyId;S.db={cid,rows:[],busy:true,done:0};
+  for(const f of files){const p=docNameParse(f.name),m=docMatch(p,cid);S.db.rows.push({file:f,fname:f.name,title:p.title||'Dokument',uid:m.uid,st:m.st,on:m.st==='ok',layout:null})}
+  render();
+  for(const r of S.db.rows){try{r.layout=await pdfLayout(new Uint8Array(await r.file.arrayBuffer()))}catch(_){r.layout=null}S.db.done++;render()}
+  S.db.busy=false;render()}
+document.addEventListener('change',ev=>{const t=ev.target;if(!t||!t.dataset)return;
+  if(t.dataset.docbulk){const fs=Array.from(t.files||[]).filter(f=>/\.pdf$/i.test(f.name)&&f.size<=8e6);if(fs.length)docBulkRead(fs).catch(x=>toast(x.message,true))}
+  if(t.dataset.dbon!==undefined&&S.db){S.db.rows[+t.dataset.dbon].on=t.checked;render()}
+  if(t.dataset.dbu!==undefined&&S.db){const r=S.db.rows[+t.dataset.dbu];r.uid=t.value;r.on=!!t.value;if(r.st==='none'&&t.value)r.st='byname';if(!t.value)r.st='none';render()}
+  if(t.dataset.cimg){const f=t.files&&t.files[0];if(f)cimgUpload(t.dataset.c,t.dataset.cimg,f).catch(x=>toast(x.message,true))}});
+async function cimgUpload(cid,kind,file){const bm=await createImageBitmap(file),k=Math.min(1,900/Math.max(bm.width,bm.height)),c=document.createElement('canvas');c.width=Math.round(bm.width*k);c.height=Math.round(bm.height*k);c.getContext('2d').drawImage(bm,0,0,c.width,c.height);
+  whiteToAlpha(c);const png=trimCanvas(c).toDataURL('image/png');toast('Nahrávam obrázok…');await call('companyImgSave',{company_id:cid,kind,png});S.cimg=S.cimg||{};delete S.cimg[cid];toast(kind==='logo'?'Logo uložené':'Pečiatka uložená');render()}
+function cimgCard(c){if(role()!=='admin')return '';S.cimg=S.cimg||{};const I=S.cimg[c.id];
+  if(I===undefined){S.cimg[c.id]=null;call('companyImgGet',{company_id:c.id}).then(r=>{S.cimg[c.id]=r;schedule()},()=>{S.cimg[c.id]={stamp:'',logo:''};schedule()})}
+  const one=(k,lab,hint)=>`<div class="f"><label>${lab}</label>${I&&I[k]?`<img alt="${lab}" src="data:image/png;base64,${I[k]}" style="max-height:90px;max-width:240px;display:block;margin:4px 0;background:#fff;border:1px solid var(--line);padding:4px">`:`<p class="muted small">${I?'Nenahraté.':'Načítavam…'}</p>`}
+    <input type="file" accept="image/*" data-cimg="${k}" data-c="${c.id}">${I&&I[k]?` <button type="button" class="btn sec sm" data-act="cimgDel" data-k="${k}" data-c="${c.id}">Odstrániť</button>`:''}<p class="muted small" style="margin:4px 0 0">${hint}</p></div>`;
+  return `<div class="card"><h3 style="margin-bottom:8px">Pečiatka a logo · ${e(c.name)}</h3><div class="row">${one('stamp','Pečiatka s podpisom','Vloží sa do dokumentu na miesto „podpis zamestnávateľa“ v chvíli, keď podpíše zamestnanec. Biele pozadie sa spriehľadní.')}${one('logo','Logo','Pre dodacie listy (pripravuje sa).')}</div></div>`}
+/* Zamestnanec: obsah dokumentu sa načíta pri otvorení podpisu (rozloženie, pečiatka). */
+function docLoad(id){S.emp.dd={id,busy:true};call('docGet',{id}).then(r=>{if(S.emp.dd&&S.emp.dd.id===id){S.emp.dd={id,b64:r.b64,layout:r.layout||null,stamp:r.stamp||''};schedule();setTimeout(()=>vzSig('docsig'),30)}},x=>{S.emp.dd={id,err:x.message};schedule()})}
+function docVyhFields(){return `<div class="card" style="margin:10px 0;padding:10px"><b>Vyhlásenie – vyplňte</b>
+  <label class="chk" style="margin-top:6px"><input type="checkbox" name="v_a" value="1"> Uplatňujem si nezdaniteľnú časť základu dane na daňovníka</label>
+  <label class="chk"><input type="checkbox" name="v_b" value="1"> Som poberateľom starobného (predčasného, výsluhového) dôchodku na začiatku roka</label>
+  <label class="chk"><input type="checkbox" name="v_c" value="1"> Uplatňujem si daňový bonus na dieťa (deti) žijúce so mnou v domácnosti</label>
+  <p class="muted small" style="margin:6px 0 4px">Deti (len pri daňovom bonuse): meno a priezvisko, rodné číslo (ak ho nemá, dátum narodenia).</p>
+  ${[0,1,2,3,4,5].map(i=>`<div class="row" style="margin-bottom:4px"><div class="f"><input name="kn${i}" placeholder="Meno a priezvisko" autocomplete="off"></div><div class="f" style="max-width:150px"><input name="kr${i}" placeholder="Rodné číslo" autocomplete="off"></div></div>`).join('')}</div>`}
+
+
+/* ---------- interné dokumenty (smernice) a uloženie kópie dokumentu ---------- */
+/* Kópia pre zamestnanca: v mobile ponuka Zdieľať (Uložiť do Súborov, Disk Google…), inak stiahnutie. */
+async function pdfSave(b64,title){const name=String(title||'dokument').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[–—]/g,'-').replace(/[^\x20-\x7e]/g,'').replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim()+'.pdf',blob=b64Blob(b64,'application/pdf');
+  try{const f=new File([blob],name,{type:'application/pdf'});if(navigator.canShare&&navigator.canShare({files:[f]})&&/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){await navigator.share({files:[f],title:name});return}}catch(x){if(x&&x.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();toast('Uložené do Stiahnutých súborov')}
+const intPending=()=>0;
+function intView(){const L=S.intdocs||[];
+  return `<div class="card"><div class="row sp"><h3>Interné dokumenty</h3><button class="btn sec sm" data-act="intToggle">Zavrieť</button></div><p class="muted small" style="margin:4px 0 8px">Smernice a predpisy zamestnávateľa na prečítanie. Kópiu si môžete uložiť do telefónu alebo na Disk.</p>${L.some(d=>!d.acked_at)?`<button class="btn" style="width:100%;margin-bottom:8px" data-act="intAckAll">Oboznámil/a som sa so všetkými dokumentmi</button>`:''}
+  ${L.length?L.map(d=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${e(d.title)}</b><div class="muted small">${vzD(d.created_at)}${d.acked_at?' · ✅ oboznámený/á '+vzD(d.acked_at):''}</div>
+    <div class="row" style="margin-top:6px"><button class="btn sec sm" data-act="intOpen" data-id="${d.id}">📄 Otvoriť</button><button class="btn sec sm" data-act="intDl" data-id="${d.id}">Uložiť kópiu</button></div></div>`).join(''):'<p class="muted">Zatiaľ žiadne.</p>'}</div>`}
+function intCard(c){if(!c)return '';const L=(S.intdocs||[]).filter(d=>d.company_id===c.id),emp=employees(c.id).filter(u=>u.role==='employee'),nm=id=>snName((S.users.find(u=>u.id===id)||{name:'?'}).name);
+  return `<details class="card dt" data-k="int"${(S.dt||{}).int?' open':''}><summary><b>Interné dokumenty (smernice)</b>${L.length?` <span class="muted small">${L.length}</span>`:''}</summary>
+  <p class="muted small" style="margin:6px 0">Na prečítanie pre všetkých zamestnancov firmy ${e(c.name)} v tlačidle „Interné dokumenty“, aj pre nových. Môžu potvrdiť jedným tlačidlom „Oboznámil/a som sa so všetkými“, nie je to povinné.</p>
+  ${L.map(d=>{const ok=d.acks.filter(k=>emp.some(u=>u.id===k.user_id)),miss=emp.filter(u=>!d.acks.some(k=>k.user_id===u.id));return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="row sp"><span><b>${e(d.title)}</b><div class="muted small">${vzD(d.created_at)} · oboznámení ${ok.length}/${emp.length}</div></span><span class="row"><button class="btn sec sm" data-act="intOpen" data-id="${d.id}">Otvoriť</button><button class="btn sec sm" data-act="intHide" data-id="${d.id}">Skryť</button></span></div>${miss.length?`<div class="small muted" style="margin-top:4px">Zatiaľ nepotvrdili: ${miss.map(u=>e(snName(u.name))).join(', ')}</div>`:''}</div>`}).join('')||'<p class="muted small">Zatiaľ žiadne.</p>'}
+  <form data-form="intSave" style="margin-top:10px"><div class="row"><div class="f"><label>Názov</label><input name="title" required placeholder="napr. Pracovný poriadok"></div><div class="f"><label>Dokument (PDF)</label><input type="file" name="pdf" accept="application/pdf" required></div></div>
+  <button class="btn" style="margin-top:8px">Nahrať</button></form></details>`}
+Object.assign(handlers,{
+  intToggle(){S.emp=S.emp||{};S.emp.int=!S.emp.int;S.emp.docs=false;S.emp.docId=null;S.emp.chg=false;S.emp.vz='';render()},
+  async intOpen(el){const w=window.open('','_blank');try{toast('Otváram dokument…');const r=await call('intGet',{id:el.dataset.id});const u=URL.createObjectURL(b64Blob(r.b64,'application/pdf'));if(w)w.location=u;else await pdfSave(r.b64,r.title)}catch(x){if(w)w.close();toast(x.message,true)}},
+  async intDl(el){try{toast('Pripravujem…');const r=await call('intGet',{id:el.dataset.id});await pdfSave(r.b64,r.title)}catch(x){toast(x.message,true)}},
+  async intAck(el){if(!confirm('Potvrdzujete, že ste si dokument prečítali a oboznámili ste sa s ním?'))return;await mut('intAck',{id:el.dataset.id},'Potvrdené, ďakujeme')},
+  async intAckAll(){const L=(S.intdocs||[]).filter(d=>!d.acked_at);if(!L.length)return;if(!confirm('Potvrdzujete, že ste sa oboznámili s týmito dokumentmi?\n\n'+L.map(d=>'• '+d.title).join('\n')))return;await mut('intAckAll',{},'Potvrdené, ďakujeme')},
+  async intHide(el){if(!confirm('Skryť dokument? Zamestnanci ho už neuvidia, na Drive ostane aj s potvrdeniami.'))return;await mut('intHide',{id:el.dataset.id},'Skryté')},
+  async docDl(el){try{toast('Pripravujem…');let r;try{r=await call('docSignedGet',{id:el.dataset.id,user_id:el.dataset.u})}catch(_){r=await call('docGet',{id:el.dataset.id})}await pdfSave(r.b64,r.title)}catch(x){toast(x.message,true)}}});
+Object.assign(forms,{
+  async intSave(f){const file=f.get('pdf');if(!file||!file.size)throw new Error('Vyberte PDF.');if(file.size>8e6)throw new Error('PDF je väčšie ako 8 MB.');
+    const pdf=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(file)});
+    toast('Nahrávam…');await call('intSave',{company_id:S.companyId,title:f.get('title'),ack:true,pdf:String(pdf).replace(/^data:[^;]*;/,'data:application/pdf;')});await load();toast('Dokument nahratý')}});
+
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 (async function start(){
   if(BOOT.o){onbStart();return}
   render();
   if(TOK){let c=null;try{c=JSON.parse(localStorage.getItem('dstate')||'null')}catch(_){}
-    if(c&&c.d&&c.d.me&&c.ym===S.ym){const d=c.d;Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],onbL:d.onb||[],chg:d.chg||[],veh:d.veh||null,mydocs:d.mydocs||[],docs:d.docs||[],ready:true});if(!S.companyId){try{S.companyId=localStorage.getItem('dcomp')}catch(_){}}if(!S.companyId||!S.companies.some(x=>x.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;render();load()}else await load()}else{S.ready=true;render()}
+    if(c&&c.d&&c.d.me&&c.ym===S.ym){const d=c.d;Object.assign(S,{me:d.me,role:d.me.role,companies:d.companies,locations:d.locations,users:d.users,entries:d.entries,absences:d.absences,corrections:d.corrections,locks:d.locks,tripDays:d.tripDays||[],notes:d.notes||[],addreqs:d.addreqs||[],stravne:d.stravne||[],onbL:d.onb||[],chg:d.chg||[],veh:d.veh||null,mydocs:d.mydocs||[],docs:d.docs||[],intdocs:d.intdocs||[],ready:true});if(!S.companyId){try{S.companyId=localStorage.getItem('dcomp')}catch(_){}}if(!S.companyId||!S.companies.some(x=>x.id===S.companyId))S.companyId=S.companies.length?S.companies[0].id:null;render();load()}else await load()}else{S.ready=true;render()}
   if(S.me)afterLogin();
   setInterval(()=>{if(S.me&&!document.hidden&&!S.scan&&!S.qrView&&!S.cp.draft&&!S.cpPrint)load()},60000);
 })();
