@@ -264,7 +264,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null,o:null};try{const sp=new URLSearchParams(location.search),qq=sp.get('q'),oo=sp.get('o');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}if(oo&&/^[0-9a-f]{24}$/.test(oo)){BOOT.o=oo;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v59';
+const APP_VER='test v60';
 const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -381,7 +381,7 @@ function viewShell(){
   h+=iosHint();
   if(r==='employee')return h+viewEmployee();
   if(!cs.length&&r==='manager')return h+`<div class="card">Zatiaľ vám nebola pridelená žiadna firma.</div>`;
-  const tabs=[['ziadosti','Žiadosti'+(pendingCount()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${pendingCount()}</b>`:'')],['prehlad','Prehľad']];{const cc=companyOf(S.companyId)||{};if(cc.no_rides!==true)tabs.push(['cesty','CP']);if(cc.veh_on)tabs.push(['voz','Vozidlá']);tabs.push(['stravne','Stravné'],['ludia','Ľudia'])}
+  const tabs=[['ziadosti','Žiadosti'+(pendingCount()?` <b style="color:#fff;background:#c0392b;border-radius:10px;padding:1px 7px;font-size:12px">${pendingCount()}</b>`:'')],['prehlad','Prehľad']];{const cc=companyOf(S.companyId)||{};if(cc.no_rides!==true)tabs.push(['cesty','Cestovné príkazy']);if(cc.veh_on)tabs.push(['voz','Vozidlá']);if(cc.veh_on&&cc.jazdy_off!==true)tabs.push(['jaz','Jazdy']);if(cc.str_off!==true)tabs.push(['stravne','Stravné']);if(cc.dok_off!==true)tabs.push(['dok','Dokumenty na podpis']);if(cc.int_off!==true)tabs.push(['int','Interné dokumenty']);tabs.push(['ludia','Ľudia'])}
   if(r==='manager'&&S.me.company_id&&S.me.company_id===S.companyId)tabs.unshift(['moja','Moja dochádzka']);
   if(!tabs.some(t=>t[0]===S.tab)&&S.tab!=='firma'&&S.tab!=='export')S.tab='prehlad';
   if(cs.length>1)h+=`<div class="card firmbar"><label for="cs">Firma</label><select id="cs" data-act="company">${cs.map(c=>`<option value="${c.id}"${c.id===S.companyId?' selected':''}>${e(c.name)}</option>`).join('')}</select></div>`;
@@ -390,7 +390,7 @@ function viewShell(){
   if(!cs.length&&r==='admin')S.tab='firma';
   h+=`<div class="tabs" role="tablist">${tabs.map(t=>`<button role="tab" data-act="tab" data-v="${t[0]}" aria-current="${S.tab===t[0]&&!S.detailId}">${t[1]}</button>`).join('')}</div>`;
   if(S.detailId&&S.tab==='prehlad')return h+viewDetail();
-  return h+({prehlad:viewOverview,ziadosti:viewRequests,ludia:viewPeople,export:viewExport,cesty:viewCesty,voz:viewVoz,stravne:viewStravne,moja:viewEmployee,firma:viewCompanies}[S.tab]||viewOverview)();
+  return h+({prehlad:viewOverview,ziadosti:viewRequests,ludia:viewPeople,export:viewExport,cesty:viewCesty,voz:viewVoz,jaz:viewKnihaJazd,dok:viewDokumenty,int:viewInterne,stravne:viewStravne,moja:viewEmployee,firma:viewCompanies}[S.tab]||viewOverview)();
 }
 function pendingCount(){const ids=new Set([S.companyId]);return S.absences.filter(a=>a.status==='pending'&&ids.has(a.company_id)).length+S.corrections.filter(c=>c.status==='pending'&&ids.has(c.company_id)).length+(S.addreqs||[]).filter(a=>a.status==='pending'&&ids.has(a.company_id)).length+(S.role==='admin'?(S.chg||[]).filter(x=>x.status==='pending'&&ids.has(x.company_id)).length:0)+(S.role==='admin'?(S.onbL||[]).filter(o=>o.status==='submitted'&&ids.has(o.company_id)).length:0)}
 
@@ -639,7 +639,6 @@ function viewPeople(){
   if(S.users.some(u=>u.fixed_from&&u.company_id===S.companyId))h+=`<div class="card"><b>Pevná pracovná doba</b><p class="muted small" style="margin:4px 0 8px">Doplní dochádzku za ${MONTHS[+S.ym.slice(5)-1]} ${S.ym.slice(0,4)} zamestnancom s pevnou dobou (pracovné dni po dnes, bez sviatkov, neprítomností a dní s existujúcim záznamom).</p><button class="btn" data-act="fillFixed">Doplniť pevnú dobu za mesiac</button></div>`;
   const list=S.users.filter(u=>u.role!=='admin'&&(u.company_id===S.companyId||(u.companies||[]).includes(S.companyId)));
   h+=onbCard();
-  h+=docsCard();h+=intCard(companyOf(S.companyId));
   h+=empEditCard();
   h+=`<div class="card"><div class="wrap"><table><thead><tr><th>Meno</th><th>Meno na prihlásenie</th><th>Rola</th><th></th></tr></thead><tbody>${list.sort((a,b)=>snName(a.name).localeCompare(snName(b.name),'sk')).map(u=>`<tr${u.active===false?' style="opacity:.5"':''}><td>${e(snName(u.name))}${u.os_cislo?`<div class="muted small">os. č. ${e(u.os_cislo)}</div>`:''}${[u.spol?'spoločník':'',u.no_meal?'bez stravného':'',u.fixed_from?'pevná doba '+u.fixed_from+'–'+u.fixed_to:'',u.cp_role&&(companyOf(u.company_id)||{}).no_rides!==true?'jazdy: '+(u.cp_role==='vodic'?'vodič':'spolujazdec'):'',u.active===false?'vypnutý':''].filter(Boolean).map(t=>`<span class="pill">${e(t)}</span>`).join(' ')}${u.emp_from||u.emp_to?`<div class="muted small">pracovný pomer ${u.emp_from?'od '+dmyFull(u.emp_from):''}${u.emp_to?' do '+dmyFull(u.emp_to):''}</div>`:''}<div class="muted small">${u.role==='manager'?(u.companies||[]).map(id=>(companyOf(id)||{name:'?'}).name).join(', '):(companyOf(u.company_id)||{name:'?'}).name}</div></td><td>${e(u.username)}</td><td>${u.role==='manager'?'správca':'zamestnanec'}</td><td class="r"><button class="btn sec sm" data-act="empOpen" data-id="${u.id}">Upraviť</button></td>`).join('')||'<tr><td colspan="4" class="muted">Zatiaľ nikto.</td></tr>'}</tbody></table></div></div>`;
   if(!cs.length)return h;
@@ -682,9 +681,17 @@ function viewCompanies(){
     <div class="row" style="margin-top:8px"><div class="f"><label>Zložka mzdy – nadčas</label><input name="w_overtime" value="${e(wageName(c,'overtime'))}"></div><div class="f"><label>Zložka mzdy – sviatok</label><input name="w_holiday" value="${e(wageName(c,'holiday'))}"></div></div>
     <div class="row" style="margin-top:8px"><div class="f"><label>Zložka mzdy – noc (voliteľné)</label><input name="w_night" value="${e(wageName(c,'night'))}"></div><div class="f"><label>Zložka mzdy – sobota (voliteľné)</label><input name="w_saturday" value="${e(wageName(c,'saturday'))}"></div><div class="f"><label>Zložka mzdy – nedeľa (voliteľné)</label><input name="w_sunday" value="${e(wageName(c,'sunday'))}"></div></div>
     <p class="muted small">Názvy zložiek musia presne zodpovedať číselníku Zložky mzdy v Pohode. Prázdne políčko sa neexportuje.</p>
-    <div class="row sp" style="margin-top:10px;align-items:center"><span class="small">Cestovné príkazy (záložka CP) a rola vodič / spolujazdec: <b>${c.no_rides===true?'vypnuté':'zapnuté'}</b></span><button type="button" class="btn sec sm" data-act="ridesToggle" data-id="${c.id}">${c.no_rides===true?'Zapnúť':'Vypnúť'}</button></div>
-    <div class="row sp" style="margin-top:6px;align-items:center"><span class="small">Vozidlá a kniha jázd (záložka Vozidlá, jazdy vodičov): <b>${c.veh_on?'zapnuté':'vypnuté'}</b></span><button type="button" class="btn sec sm" data-act="vehToggle" data-id="${c.id}">${c.veh_on?'Vypnúť':'Zapnúť'}</button></div>
     <div style="margin-top:8px"><button class="btn">Uložiť firmu</button></div></form>
+    <div class="card"><b>Moduly firmy</b><p class="muted small" style="margin:4px 0 8px">Čo firma používa. Vypnutý modul sa nezobrazí ani správcovi, ani adminovi.</p>
+    <form data-form="saveModules" data-id="${c.id}"><div class="chks">
+    <label class="chk"><input type="checkbox" name="m_cp" value="1"${c.no_rides!==true?' checked':''}> Cestovné príkazy (a rola vodič / spolujazdec)</label>
+    <label class="chk"><input type="checkbox" name="m_veh" value="1"${c.veh_on?' checked':''}> Vozidlá (evidencia áut, s GPS aj bez GPS)</label>
+    <label class="chk"><input type="checkbox" name="m_jazdy" value="1"${c.veh_on&&c.jazdy_off!==true?' checked':''}> Jazdy (kniha jázd áut bez GPS; vyžaduje Vozidlá)</label>
+    <label class="chk"><input type="checkbox" name="m_str" value="1"${c.str_off!==true?' checked':''}> Stravné</label>
+    <label class="chk"><input type="checkbox" name="m_dok" value="1"${c.dok_off!==true?' checked':''}> Dokumenty na podpis (osobné, z Pohody)</label>
+    <label class="chk"><input type="checkbox" name="m_int" value="1"${c.int_off!==true?' checked':''}> Interné dokumenty (smernice pre všetkých)</label>
+    <label class="chk" style="opacity:.55"><input type="checkbox" disabled> Dodacie listy (pripravuje sa)</label></div>
+    <div style="margin-top:8px"><button class="btn">Uložiť moduly</button></div></form></div>
     ${S.companies.length>1?`<div class="card"><b>Skryť firmu</b><p class="muted small" style="margin:4px 0 8px">Hodí sa napr. pre testovaciu firmu. Firma zmizne z výberu, dáta a súbory na Drive ostanú. Najprv musia byť odstránení všetci jej ľudia.</p><button class="btn sec sm" data-act="hideCompany" data-id="${c.id}">Skryť túto firmu</button></div>`:''}
     <details class="card dt" data-k="str"${(S.dt||{}).str?' open':''}><summary><b>Stravné – nastavenie · ${e(c.name)}</b></summary>${strCfgCard(c).replace('<form class="card"','<form class="dtin"')}</details>
     <details class="card dt" data-k="loc"${(S.dt||{}).loc===false?'':' open'}><summary><b>Pracoviská a QR kódy · ${e(c.name)}</b></summary><p class="muted small" style="margin:4px 0 0">Každé pracovisko má jeden pevný QR kód pre príchod a jeden pre odchod. Platnosť dochádzky chráni kontrola polohy. Ak by sa kód zneužil, vygenerujte nové.</p>
@@ -840,7 +847,7 @@ const handlers={
   cpSum(){S.cpPrint='sum';render();window.scrollTo(0,0)},
   cpPrintClose(){S.cpPrint=null;render()},
   logout(){call('logout').catch(()=>{});dropSession();render()},
-  tab(el){S.cp.loaded='';if(el.dataset.v==='prehlad'){JC.key=null;JC.form=null}if(el.dataset.v==='voz'){VZ.key=null;VZ.d=null;VZ.form='';VZ.edit=null}S.tab=el.dataset.v;S.detailId=null;S.exportText=null;render()},
+  tab(el){S.cp.loaded='';if(el.dataset.v==='prehlad'){JC.key=null;JC.form=null}if(el.dataset.v==='voz'||el.dataset.v==='jaz'){VZ.key=null;VZ.d=null;VZ.form='';VZ.edit=null}S.tab=el.dataset.v;S.detailId=null;S.exportText=null;render()},
   company(el){S.cp.loaded='';S.companyId=el.value;S.detailId=null;S.vozFull=false;try{localStorage.setItem('dcomp',el.value)}catch(_){}render()},
   month(el){S.cp.loaded='';S.jz.key='';const y0=S.ym.slice(0,4);S.ym=shiftYm(S.ym,+el.dataset.d);S.exportText=null;return S.ym.slice(0,4)!==y0?load():loadMonth()},
   open(el){S.detailId=el.dataset.id;navPush();render()},
@@ -961,6 +968,7 @@ const forms={
   mgrAbs:(f,form)=>mut('absAdd',{user_id:form.dataset.uid,kind:f.get('kind'),from:f.get('from'),to:f.get('to'),part:f.get('part'),who:f.get('who')},'Zapísané'),
   async addUser(f){const ro=f.get('role');S.newPin=await call('userAdd',{name:f.get('name'),username:f.get('username'),role:ro==='both'?'manager':ro,both:ro==='both',company_id:f.get('company'),companies:f.getAll('mc'),os:f.get('os'),weekly:f.get('weekly'),dohoda:f.get('pomer')==='dohoda',spol:!!f.get('spol')});await load()},
   async addCompany(f){const r=await call('companyAdd',{name:f.get('name'),ico:f.get('ico')});S.companyId=r.id;await load();toast('Firma založená')},
+  saveModules:(f,form)=>mut('companyModules',{id:form.dataset.id,m:{cp:!!f.get('m_cp'),veh:!!f.get('m_veh'),jazdy:!!f.get('m_jazdy'),str:!!f.get('m_str'),dok:!!f.get('m_dok'),int:!!f.get('m_int')}},'Moduly uložené'),
   saveCompany:(f,form)=>mut('companySave',{id:form.dataset.id,name:f.get('name'),ico:f.get('ico'),round_min:f.get('round_min'),meal_h:f.get('meal_h'),b1_h:f.get('b1_h'),b1_min:f.get('b1_min'),b2_h:f.get('b2_h'),b2_min:f.get('b2_min'),meal_rate:f.get('meal_rate'),sf_rate:f.get('sf_rate'),rate_from:f.get('rate_from'),mode:f.get('mode'),geo:f.get('geo'),
     wage_map:{overtime:f.get('w_overtime').trim(),holiday:f.get('w_holiday').trim(),night:f.get('w_night').trim(),saturday:f.get('w_saturday').trim(),sunday:f.get('w_sunday').trim()}},'Uložené'),
   saveStrCfg:(f,form)=>mut('stravneCfg',{company_id:form.dataset.id,skip:f.get('skip')==='1',mode:f.get('mode'),fixed:String(f.get('fixed')||'').replace(',','.'),acc:{nakl:f.get('a_nakl'),sf:f.get('a_sf'),pohl:f.get('a_pohl'),zam:f.get('a_zam'),spol:f.get('a_spol'),banka:f.get('a_banka'),die:f.get('a_die'),cpzal:f.get('a_cpzal')},pk:Object.fromEntries(['zak','sf','zal','zals','diez','dies','diezal'].map(k=>[k,f.get('p_'+k)]))},'Uložené'),
@@ -1096,6 +1104,18 @@ function vzIssues(v,ym,D){D=D||VZ.d;const R=D.rides.filter(r=>r.vehicle_id===v.i
   const fuel=D.fuel.filter(f=>f.vehicle_id===v.id&&f.at.slice(0,7)===ym&&!f.ride_id),gk=gaps.reduce((t,g)=>t+g.km,0);
   return{gaps,fuel,gk,pct:rec+gk?Math.round(rec/(rec+gk)*100):100}}
 function viewVoz(){const c=companyOf(S.companyId);if(!c)return '';
+  if(!c.veh_on)return `<div class="card"><p>Evidencia vozidiel nie je pre <b>${e(c.name)}</b> zapnutá.</p>${S.role==='admin'?`<p class="muted small">Zapína sa v záložke Firmy v časti Moduly.</p>`:''}</div>`;
+  const y=S.ym.slice(0,4);if(!VZ.d||VZ.key!==c.id+'|'+y){vzLoad();return `<div class="card"><p class="muted">Načítavam vozidlá…</p></div>`}
+  const V=VZ.d.vehicles,f=VZ.f||'all',nm=id=>snName((S.users.find(u=>u.id===id)||{name:'?'}).name),nG=V.filter(vzGps).length;
+  const L=V.filter(x=>f==='gps'?vzGps(x):f==='nogps'?!vzGps(x):true).sort((a,b)=>(a.retired?1:0)-(b.retired?1:0)||String(a.spz).localeCompare(String(b.spz),'sk'));
+  const fb=(k,t)=>`<button class="btn ${f===k?'':'sec'} sm" data-act="vzFilt" data-v="${k}">${t}</button>`;
+  let h=`<div class="card"><div class="row sp" style="flex-wrap:wrap;gap:6px"><div class="row" style="flex-wrap:wrap;gap:6px">${fb('all','Všetky ('+V.length+')')}${fb('gps','S GPS ('+nG+')')}${fb('nogps','Bez GPS ('+(V.length-nG)+')')}</div><button class="btn sm" data-act="vzVehNew">+ Vozidlo</button></div></div>`;
+  if(VZ.form==='vehNew')h+=vzVehForm(null);else if(VZ.form==='veh'){const v=V.find(x=>x.id===VZ.veh);if(v)h+=vzVehForm(v)}
+  h+=`<div class="card"><div class="wrap"><table><thead><tr><th>ŠPZ</th><th>Názov</th><th>Zdroj jázd</th><th>Vodiči</th><th></th></tr></thead><tbody>${L.map(x=>`<tr${x.retired?' style="opacity:.55"':''}><td><b>${e(x.spz)}</b>${x.retired?' <span class="muted small">(vyradené)</span>':''}</td><td>${e(x.name||'')}</td><td>${vzGps(x)?'GPS · '+(x.src==='carnet'?'Carnet':'Commander'):'Bez GPS'}</td><td class="small">${(x.drivers||[]).map(nm).map(e).join(', ')||'—'}</td><td><button class="btn sec sm" data-act="vzVehOpen" data-id="${x.id}">Upraviť</button></td></tr>`).join('')||'<tr><td colspan="5" class="muted">Žiadne vozidlá.</td></tr>'}</tbody></table></div>${f!=='gps'?'<p class="muted small" style="margin:8px 0 0">Kniha jázd vozidiel bez GPS sa vedie v záložke Jazdy.</p>':''}</div>`;
+  return h}
+function viewDokumenty(){const c=companyOf(S.companyId);return c?docsCard():''}
+function viewInterne(){const c=companyOf(S.companyId);return c?intCard(c):''}
+function viewKnihaJazd(){const c=companyOf(S.companyId);if(!c)return '';
   const myCars=S.role!=='admin'&&S.veh&&S.veh.cars?S.veh.cars.filter(x=>x.company_id===c.id):[];
   if(myCars.length&&!S.vozFull){S.emp=S.emp||{screen:'home',brk:false};const keep=S.veh;let card='';
     S.veh=Object.assign({},keep,{cars:myCars,routes:(keep.routes||[]).filter(x=>x.company_id===c.id),warn:(keep.warn||[]).filter(w=>myCars.some(x=>x.id===w.vehicle_id)),recent:(keep.recent||[]).filter(x=>myCars.some(y=>y.id===x.vehicle_id)),ride:keep.ride&&myCars.some(x=>x.id===keep.ride.vehicle_id)?keep.ride:null});
@@ -1104,11 +1124,11 @@ function viewVoz(){const c=companyOf(S.companyId);if(!c)return '';
   if(!c.veh_on)return `<div class="card"><p>Evidencia vozidiel a jázd nie je pre <b>${e(c.name)}</b> zapnutá.</p>${S.role==='admin'?`<button class="btn" data-act="vzOn" data-id="${c.id}">Zapnúť vozidlá a knihu jázd</button>`:''}</div>`;
   const mine=myCars.length?`<div class="note"><button class="btn sec sm" data-act="vozFull">‹ Moje jazdy</button></div>`:'';
   const y=S.ym.slice(0,4);if(!VZ.d||VZ.key!==c.id+'|'+y){vzLoad();return mine+`<div class="card"><p class="muted">Načítavam vozidlá…</p></div>`}
-  const d=VZ.d,V=d.vehicles,v=V.find(x=>x.id===VZ.veh),nm=id=>snName((S.users.find(u=>u.id===id)||{name:'?'}).name);
-  let h=mine+`<div class="card">${monthNav()}<div class="row" style="flex-wrap:wrap;gap:6px">${V.filter(x=>!x.retired||x.id===VZ.veh).map(x=>{const I=vzIssues(x,S.ym);return `<button class="btn ${x.id===VZ.veh?'':'sec'} sm" data-act="vzPick" data-id="${x.id}">${e(x.spz)}${vzGps(x)?' · GPS':''}${x.retired?' (vyradené)':''}${I.gaps.length||I.fuel.length?' ⚠':''}</button>`}).join('')}<button class="btn sec sm" data-act="vzVehNew">+ Vozidlo</button><button class="btn sec sm" data-act="vzSet">Účely a miesta</button></div></div>`;
-  if(VZ.form==='veh'||VZ.form==='vehNew')h+=vzVehForm(VZ.form==='veh'?v:null);
+  const d=VZ.d,V=d.vehicles.filter(x=>!vzGps(x)),v=V.find(x=>x.id===VZ.veh)||V.find(x=>!x.retired),nm=id=>snName((S.users.find(u=>u.id===id)||{name:'?'}).name);
+  let h=mine+`<div class="card">${monthNav()}<div class="row" style="flex-wrap:wrap;gap:6px">${V.filter(x=>!x.retired||x.id===VZ.veh).map(x=>{const I=vzIssues(x,S.ym);return `<button class="btn ${x.id===VZ.veh?'':'sec'} sm" data-act="vzPick" data-id="${x.id}">${e(x.spz)}${vzGps(x)?' · GPS':''}${x.retired?' (vyradené)':''}${I.gaps.length||I.fuel.length?' ⚠':''}</button>`}).join('')}<button class="btn sec sm" data-act="vzSet">Účely a miesta</button></div></div>`;
+  if(VZ.form==='veh')h+=vzVehForm(v);
   if(VZ.form==='set')h+=vzSetForm(d);
-  if(!v)return h+(V.length?'':`<div class="card"><p class="muted">Zatiaľ žiadne vozidlo. Pridajte ho tlačidlom „+ Vozidlo“.</p></div>`);
+  if(!v)return h+`<div class="card"><p class="muted">Zatiaľ žiadne vozidlo bez GPS. Pridajte ho v záložke Vozidlá (zdroj jázd „Bez GPS“).</p></div>`;VZ.veh=v.id;
   if(vzGps(v))return h+`<div class="card"><div class="row sp"><h3>${e(v.spz)} · ${e(v.name||'')}</h3><button class="btn sec sm" data-act="vzVehEdit">Upraviť vozidlo</button></div>
     <p style="margin:8px 0 0">Auto má GPS (${v.src==='carnet'?'Carnet':'Commander'}). Kniha jázd sa vedie tam, v tejto appke sa preň jazdy ani tankovania nezapisujú.</p><p class="muted small" style="margin:6px 0 0">Ak auto GPS nemá, v úprave vozidla nastavte „Zdroj jázd: zapisuje vodič v appke“.</p></div>`;
   const ym=S.ym,R=d.rides.filter(r=>r.vehicle_id===v.id&&r.start_at.slice(0,7)===ym).sort((a,b)=>a.start_at<b.start_at?-1:1),F=d.fuel.filter(f=>f.vehicle_id===v.id&&f.at.slice(0,7)===ym).sort((a,b)=>a.at<b.at?-1:1),K=d.costs.filter(x=>x.vehicle_id===v.id&&x.at.slice(0,7)===ym);
@@ -1186,7 +1206,7 @@ async function vzPdf(v,p){const c=companyOf(S.companyId),html=vzPdfHtml(v,p),nam
 
 /* ---------- správca: dokumenty na podpis (v záložke Ľudia) ---------- */
 function docsCard(){const c=companyOf(S.companyId);if(!c)return '';const L=(S.docs||[]).filter(d=>d.company_id===c.id),nm=id=>snName((S.users.find(u=>u.id===id)||{name:'?'}).name),emp=employees(c.id);
-  return `<details class="card dt" data-k="docs"${(S.dt||{}).docs?' open':''}><summary><b>Dokumenty na podpis</b>${L.some(d=>d.sig.some(s=>s.status==='pending'))?` <span class="pill warn">${L.reduce((t,d)=>t+d.sig.filter(s=>s.status==='pending').length,0)} nepodpísaných</span>`:''}</summary>
+  return `<details class="card dt" data-k="docs"${(S.dt||{}).docs===false?'':' open'}><summary><b>Dokumenty na podpis</b>${L.some(d=>d.sig.some(s=>s.status==='pending'))?` <span class="pill warn">${L.reduce((t,d)=>t+d.sig.filter(s=>s.status==='pending').length,0)} nepodpísaných</span>`:''}</summary>
   ${L.map(d=>{const sg=d.sig.filter(s=>s.status!=='cancelled'),ok=sg.filter(s=>s.status==='signed').length;return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="row sp"><span><b>${e(d.title)}</b><div class="muted small">${vzD(d.created_at)} · podpísané ${ok}/${sg.length}${d.due?' · do '+vzD(d.due):''}</div></span><span class="row"><button class="btn sec sm" data-act="docOpen" data-id="${d.id}">Otvoriť</button>${ok<sg.length?`<button class="btn sec sm" data-act="docCancel" data-id="${d.id}">Zrušiť</button>`:''}</span></div><div class="small" style="margin-top:4px">${sg.map(s=>`${s.status==='signed'?`✅ <a href="#" data-act="docOpenSigned" data-id="${d.id}" data-u="${s.user_id}">${e(nm(s.user_id))}</a>`:'⏳ '+e(nm(s.user_id))}${s.status==='signed'?' <span class="muted">'+vzD(s.signed_at)+'</span>':s.seen_at?' <span class="muted">(otvorené)</span>':''}`).join(' · ')}</div></div>`}).join('')||'<p class="muted small">Zatiaľ žiadne.</p>'}
   ${docBulkCard(c)}
   <p style="margin:14px 0 4px"><b>Jeden dokument viacerým</b></p><form data-form="docCreate" style="margin-top:4px"><div class="row"><div class="f"><label>Názov dokumentu</label><input name="title" required placeholder="napr. Dodatok k pracovnej zmluve 2027"></div><div class="f"><label>Podpísať do</label><input type="date" name="due"></div></div>
@@ -1228,7 +1248,7 @@ Object.assign(handlers,{
   vzPick(el){VZ.veh=el.dataset.id;VZ.edit=null;VZ.form='';render()},
   async vzVehDel(el){const v=VZ.d.vehicles.find(x=>x.id===el.dataset.id);if(!v||!confirm(`Natrvalo zmazať vozidlo ${v.spz}${v.name?' ('+v.name+')':''} aj s jeho úsekmi z knihy jázd?`))return;
     try{const r=await call('vehDel',{id:v.id});VZ.veh=null;VZ.form='';await load();await vzLoad(true);toast(`Vozidlo ${v.spz} zmazané${r.legs?' · úsekov z knihy jázd: '+r.legs:''}`)}catch(x){toast(x.message,true)}},
-  vzVehNew(){VZ.form='vehNew';render()},vzVehEdit(){VZ.form='veh';render()},vzSet(){VZ.form=VZ.form==='set'?'':'set';render()},vzFormX(){VZ.form='';VZ.pre=null;render()},vzAddM(){VZ.form='add';VZ.pre=null;render()},vzGapFix(el){VZ.form='add';VZ.pre={from:+el.dataset.from,to:+el.dataset.to,day:el.dataset.day};render();try{window.scrollTo({top:0,behavior:'smooth'})}catch(_){}},
+  vzVehNew(){VZ.form='vehNew';render()},vzFilt(el){VZ.f=el.dataset.v;render()},vzVehOpen(el){VZ.veh=el.dataset.id;VZ.form='veh';render();window.scrollTo(0,0)},vzVehEdit(){VZ.form='veh';render()},vzSet(){VZ.form=VZ.form==='set'?'':'set';render()},vzFormX(){VZ.form='';VZ.pre=null;render()},vzAddM(){VZ.form='add';VZ.pre=null;render()},vzGapFix(el){VZ.form='add';VZ.pre={from:+el.dataset.from,to:+el.dataset.to,day:el.dataset.day};render();try{window.scrollTo({top:0,behavior:'smooth'})}catch(_){}},
   vzEdit(el){VZ.edit=el.dataset.id;render()},vzEditX(){VZ.edit=null;render()},
   async vzRideDel(el){if(!confirm('Zmazať jazdu?'))return;try{await call('rideDel',{id:el.dataset.id});VZ.edit=null;await vzLoad(true)}catch(x){toast(x.message,true)}},
   async vzFuelDel(el){if(!confirm('Zmazať tankovanie?'))return;try{await call('fuelDel',{id:el.dataset.id});await vzLoad(true)}catch(x){toast(x.message,true)}},
@@ -1875,7 +1895,7 @@ function intView(){const L=S.intdocs||[];
   ${L.length?L.map(d=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${e(d.title)}</b><div class="muted small">${vzD(d.created_at)}${d.acked_at?' · ✅ oboznámený/á '+vzD(d.acked_at):''}</div>
     <div class="row" style="margin-top:6px"><button class="btn sec sm" data-act="intOpen" data-id="${d.id}">📄 Otvoriť</button><button class="btn sec sm" data-act="intDl" data-id="${d.id}">Uložiť kópiu</button></div></div>`).join(''):'<p class="muted">Zatiaľ žiadne.</p>'}</div>`}
 function intCard(c){if(!c)return '';const L=(S.intdocs||[]).filter(d=>d.company_id===c.id),emp=employees(c.id).filter(u=>u.role==='employee'),nm=id=>snName((S.users.find(u=>u.id===id)||{name:'?'}).name);
-  return `<details class="card dt" data-k="int"${(S.dt||{}).int?' open':''}><summary><b>Interné dokumenty (smernice)</b>${L.length?` <span class="muted small">${L.length}</span>`:''}</summary>
+  return `<details class="card dt" data-k="int"${(S.dt||{}).int===false?'':' open'}><summary><b>Interné dokumenty (smernice)</b>${L.length?` <span class="muted small">${L.length}</span>`:''}</summary>
   <p class="muted small" style="margin:6px 0">Na prečítanie pre všetkých zamestnancov firmy ${e(c.name)} v tlačidle „Interné dokumenty“, aj pre nových. Môžu potvrdiť jedným tlačidlom „Oboznámil/a som sa so všetkými“, nie je to povinné.</p>
   ${L.map(d=>{const ok=d.acks.filter(k=>emp.some(u=>u.id===k.user_id)),miss=emp.filter(u=>!d.acks.some(k=>k.user_id===u.id));return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="row sp"><span><b>${e(d.title)}</b><div class="muted small">${vzD(d.created_at)} · oboznámení ${ok.length}/${emp.length}</div></span><span class="row"><button class="btn sec sm" data-act="intOpen" data-id="${d.id}">Otvoriť</button><button class="btn sec sm" data-act="intHide" data-id="${d.id}">Skryť</button></span></div>${miss.length?`<div class="small muted" style="margin-top:4px">Zatiaľ nepotvrdili: ${miss.map(u=>e(snName(u.name))).join(', ')}</div>`:''}</div>`}).join('')||'<p class="muted small">Zatiaľ žiadne.</p>'}
   <form data-form="intSave" style="margin-top:10px"><div class="row"><div class="f"><label>Názov</label><input name="title" required placeholder="napr. Pracovný poriadok"></div><div class="f"><label>Dokument (PDF)</label><input type="file" name="pdf" accept="application/pdf" required></div></div>
