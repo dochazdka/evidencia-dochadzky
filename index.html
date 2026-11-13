@@ -265,7 +265,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null,o:null};try{const sp=new URLSearchParams(location.search),qq=sp.get('q'),oo=sp.get('o');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}if(oo&&/^[0-9a-f]{24}$/.test(oo)){BOOT.o=oo;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v63';
+const APP_VER='test v64';
 const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
@@ -1772,16 +1772,18 @@ function viewDl(){const s=dlSt(),c=companyOf(S.companyId);
 function dlList(d,s){const rows=d.notes.filter(n=>!s.f||n.cust_id===s.f);
   let h=`<div class="card"><div class="row"><div class="f"><label>Odberateľ</label><select data-act="dlF"><option value="">Všetci odberatelia</option>${d.customers.map(x=>`<option value="${x.id}"${s.f===x.id?' selected':''}>${e(x.name)}</option>`).join('')}</select></div></div></div>`;
   if(!rows.length)return h+`<div class="card muted">Zatiaľ žiadne dodacie listy.</div>`;
-  return h+rows.map(n=>`<div class="loc"><div class="row sp"><b>${e(n.no)}</b><span class="small">${dmyFull(n.date)}${n.status==='storno'?' · <b style="color:#c0392b">STORNO</b>':''}</span></div><div>${e((n.cust||{}).name)}</div><div class="small muted">${n.lines.length} pol. · ${n.lines.reduce((a,l)=>a+l.qty,0)} ks · vystavil ${e(n.by)}${n.order_no?' · obj. '+e(n.order_no):''}</div><div class="row" style="margin-top:6px"><button class="btn sec sm" data-act="dlPrint" data-id="${n.id}">Tlačiť</button>${d.mgr&&n.status!=='storno'?`<button class="btn sec sm" data-act="dlStorno" data-id="${n.id}">Storno</button>`:''}</div></div>`).join('')}
+  return h+rows.map(n=>`<div class="loc"><div class="row sp"><b>${e(n.no)}</b><span class="small">${dmyFull(n.date)}${n.status==='storno'?' · <b style="color:#c0392b">STORNO</b>':''}</span></div><div>${e((n.cust||{}).name)}</div><div class="small muted">${n.lines.length} pol. · ${n.lines.reduce((a,l)=>a+l.qty,0)} ks · vystavil ${e(n.by)}${n.order_no?' · obj. '+e(n.order_no):''}</div><div class="row" style="margin-top:6px"><button class="btn sec sm" data-act="dlPrint" data-id="${n.id}">Tlačiť</button><button class="btn sec sm" data-act="dlCopy" data-id="${n.id}">Kopírovať</button>${d.mgr&&n.status!=='storno'?`<button class="btn sec sm" data-act="dlStorno" data-id="${n.id}">Storno</button>`:''}</div></div>`).join('')}
 function dlNew(d,s){
   if(!d.customers.length)return `<div class="card muted">Najprv pridajte odberateľov${d.mgr?'':' (správca)'}.</div>`;
   if(!d.issuers.length)return `<div class="card muted">Nie je nikto, kto môže vystavovať dodacie listy. Správca to nastaví v záložke Oprávnenia.</div>`;
   const lastBy=(()=>{try{return localStorage.getItem('dlby')}catch(_){return ''}})();
-  return `<form class="card" data-form="dlNew"><div class="row"><div class="f"><label>Odberateľ</label><select name="cust" required><option value="">– vyberte –</option>${d.customers.map(x=>`<option value="${x.id}">${e(x.name)}</option>`).join('')}</select></div><div class="f"><label>Dátum</label><input type="date" name="date" value="${today()}" required></div></div>
-  <div class="row"><div class="f"><label>Vystavil</label><select name="by" required><option value="">– vyberte svoje meno –</option>${d.issuers.map(x=>`<option value="${x.id}"${lastBy===x.id?' selected':''}>${e(x.name)}</option>`).join('')}</select></div><div class="f"><label>Objednávka č. (voliteľné)</label><input name="order" maxlength="40"></div></div>
+  const cp=s.copy,Q={};if(cp)cp.lines.forEach(l=>{Q[l.item_id]=l.qty});
+  const its=cp?d.items.slice().sort((a,b)=>(Q[b.id]?1:0)-(Q[a.id]?1:0)):d.items;
+  return (cp?`<div class="card hi"><b>Kópia z ${e(cp.no)}</b><p class="small" style="margin:4px 0 8px">Odberateľ a položky sú predvyplnené, počty sú vynulované. Zadajte nové počty a vyberte, kto vystavuje.</p><button class="btn sec sm" data-act="dlCopyOff">Zrušiť kópiu</button></div>`:'')+`<form class="card" data-form="dlNew"><div class="row"><div class="f"><label>Odberateľ</label><select name="cust" required><option value="">– vyberte –</option>${d.customers.map(x=>`<option value="${x.id}"${cp&&cp.cust_id===x.id?' selected':''}>${e(x.name)}</option>`).join('')}</select></div><div class="f"><label>Dátum</label><input type="date" name="date" value="${today()}" required></div></div>
+  <div class="row"><div class="f"><label>Vystavil</label><select name="by" required><option value="">– vyberte svoje meno –</option>${d.issuers.map(x=>`<option value="${x.id}"${!cp&&lastBy===x.id?' selected':''}>${e(x.name)}</option>`).join('')}</select></div><div class="f"><label>Objednávka č. (voliteľné)</label><input name="order" maxlength="40"></div></div>
   <div class="f"><label>Poznámka (voliteľné)</label><input name="note" maxlength="300"></div>
   <div class="f" style="margin-top:8px"><label>Hľadať položku</label><input data-dlfilter placeholder="napr. osuška" autocomplete="off"></div>
-  <div id="dlitems" style="max-height:55vh;overflow:auto;margin:8px 0">${d.items.map(i=>`<div class="row sp" data-n="${e(i.name.toLowerCase())}" style="padding:4px 0;border-bottom:1px solid #eee"><span>${e(i.name)}</span><input type="number" name="q_${i.id}" min="0" step="1" inputmode="numeric" style="width:90px" aria-label="Počet ${e(i.name)}"></div>`).join('')||'<span class="muted">Žiadne položky.</span>'}</div>
+  <div id="dlitems" style="max-height:55vh;overflow:auto;margin:8px 0">${its.map(i=>`<div class="row sp" data-n="${e(i.name.toLowerCase())}" style="padding:4px 0;border-bottom:1px solid #eee${Q[i.id]?';background:#fff8e1':''}"><span>${e(i.name)}</span><input type="number" name="q_${i.id}" min="0" step="1" inputmode="numeric" style="width:90px"${Q[i.id]?' value="0"':''} aria-label="Počet ${e(i.name)}"></div>`).join('')||'<span class="muted">Žiadne položky.</span>'}</div>
   <button class="btn big">Vystaviť dodací list</button></form>`}
 function dlSum(d,s){const r=dlPerRange(s),y=s.y||today().slice(0,4),m=s.m||today().slice(5,7);
   let h=`<div class="card"><div class="row"><div class="f"><label>Obdobie</label><select data-act="dlPer"><option value="m"${s.per==='m'?' selected':''}>Mesiac</option><option value="q"${s.per==='q'?' selected':''}>Kvartál</option><option value="y"${s.per==='y'?' selected':''}>Rok</option><option value="c"${s.per==='c'?' selected':''}>Vlastné</option></select></div>
@@ -1827,13 +1829,15 @@ Object.assign(handlers,{
   async dlIDel(el){if(!confirm('Zmazať položku? Už vystavené dodacie listy ostanú.'))return;await call('dlItemDel',{company_id:S.companyId,id:el.dataset.id});await dlLoad(true);toast('Zmazané')},
   async dlStorno(el){const why=prompt('Dôvod storna:');if(!why)return;await call('dlStorno',{company_id:S.companyId,id:el.dataset.id,reason:why});await dlLoad(true);toast('Stornované')},
   async dlAcc(el){await call('dlAccess',{company_id:S.companyId,user_id:el.dataset.id,lvl:el.value});await dlLoad(true);toast('Uložené')},
+  dlCopy(el){const s=dlSt(),n=s.d.notes.find(x=>x.id===el.dataset.id);if(!n)return;s.copy={no:n.no,cust_id:n.cust_id,lines:n.lines};s.v='new';render();window.scrollTo(0,0)},
+  dlCopyOff(){dlSt().copy=null;render()},
   dlOpen(){S.emp=S.emp||{};S.emp.screen='dl';navPush();render()}
 });
 Object.assign(forms,{
   async dlNew(f){const lines=[];for(const [k,v] of f.entries())if(k.startsWith('q_')&&+v>0)lines.push({item_id:k.slice(2),qty:+v});
     const r=await call('dlCreate',{company_id:S.companyId,cust_id:f.get('cust'),date:f.get('date'),by_id:f.get('by'),order_no:f.get('order'),note:f.get('note'),lines});
     try{localStorage.setItem('dlby',f.get('by'))}catch(_){}
-    await dlLoad(true);const n=dlSt().d.notes.find(x=>x.id===r.id);toast('Vystavený '+r.no);if(n)dlOpenPrint(dlNoteHtml(n))},
+    await dlLoad(true);const n=dlSt().d.notes.find(x=>x.id===r.id);toast('Vystavený '+r.no);dlSt().copy=null;if(n)dlOpenPrint(dlNoteHtml(n))},
   async dlCust(f,form){await call('dlCustSave',{company_id:S.companyId,id:form.dataset.id||undefined,name:f.get('name'),street:f.get('street'),city:f.get('city'),zip:f.get('zip'),ico:f.get('ico'),dic:f.get('dic'),icdph:f.get('icdph'),mode:f.get('mode'),kgitems:f.getAll('kgi')});dlSt().cEdit=null;await dlLoad(true);toast('Uložené')},
   async dlItem(f,form){await call('dlItemSave',{company_id:S.companyId,id:form.dataset.id||undefined,name:f.get('name'),kg:f.get('kg')});dlSt().iEdit=null;await dlLoad(true);toast('Uložené')},
   async dlHdr(f){await call('dlHdrSave',{company_id:S.companyId,text:f.get('text')});await dlLoad(true);toast('Hlavička uložená')}
