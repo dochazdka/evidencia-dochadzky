@@ -134,7 +134,7 @@ function breakMinutes(g,r=DEF){let b=0;if(g>r.break1_after)b+=r.break1_min;if(g>
 function nightMinutes(a,b){let t=0;const s=Math.floor(a/1440)*1440-1440;for(let d=s;d<=b;d+=1440){t+=Math.max(0,Math.min(b,d+360)-Math.max(a,d));t+=Math.max(0,Math.min(b,d+1440)-Math.max(a,d+1320))}return t}
 function easterSunday(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;return Date.UTC(y,mo-1,da)}
 const holCache={};
-function skHolidays(y){if(holCache[y])return holCache[y];const set=new Set(['01-01','01-06','05-01','05-08','07-05','08-29','09-01','09-15','11-01','11-17','12-24','12-25','12-26'].map(s=>y+'-'+s));const e=easterSunday(y);for(const o of[-2,1]){const d=new Date(e+o*864e5);set.add(`${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`)}return holCache[y]=set}
+function skHolidays(y){if(holCache[y])return holCache[y];const set=new Set(['01-01','01-06','05-01','05-08','07-05','08-29','09-01','09-15','11-01','12-24','12-25','12-26'].map(s=>y+'-'+s));const e=easterSunday(y);for(const o of[-2,1]){const d=new Date(e+o*864e5);set.add(`${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`)}return holCache[y]=set}
 const isHoliday=ds=>skHolidays(+ds.slice(0,4)).has(ds);
 const weekday=ds=>new Date(ds+'T00:00:00Z').getUTCDay();
 const daysInMonth=ym=>{const[y,m]=ym.split('-').map(Number);return new Date(Date.UTC(y,m,0)).getUTCDate()};
@@ -265,7 +265,7 @@ function toCp1250(s){const o=[];for(const ch of s){const c=ch.codePointAt(0);if(
 const BOOT={q:null,o:null};try{const sp=new URLSearchParams(location.search),qq=sp.get('q'),oo=sp.get('o');if(qq){BOOT.q=qq;history.replaceState(null,'',location.pathname)}if(oo&&/^[0-9a-f]{24}$/.test(oo)){BOOT.o=oo;history.replaceState(null,'',location.pathname)}}catch(_){}
 setTimeout(()=>{if(BOOT.q&&!GEO){GEO={t:0};GEO.p=getFix().then(r=>{GEO.t=Date.now();return r})}},0);
 const API=(window.CFG&&window.CFG.api)||'';
-const APP_VER='test v65';
+const APP_VER='test v66';
 const S={addreqs:[],stravne:[],ready:false,role:null,me:null,tab:'prehlad',companyId:null,ym:today().slice(0,7),detailId:null,companies:[],locations:[],users:[],entries:[],absences:[],corrections:[],locks:[],toast:null,newPin:null,err:null,scan:null,qrView:null,exportText:null,
   get isOwner(){return this.role==='admin'}};
 const $app=document.getElementById('app');
